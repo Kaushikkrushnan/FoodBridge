@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>NGO Portal • Surplus-to-NGO</title>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+	<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+	<div class="wrapper">
+		<header>
+			<div class="brand">
+				<div class="logo">SF</div>
+				<div>
+					<p class="title">NGO Portal</p>
+					<p class="subtitle">Post requests and pickup capacity for donors to see</p>
+				</div>
+			</div>
+			<div class="actions">
+				<a class="link-btn secondary" href="{{ url_for('index') }}">Back to Home</a>
+				<a class="link-btn secondary" href="{{ url_for('food_donor') }}">Donor</a>
+				<a class="link-btn secondary" href="{{ url_for('admin') }}">Admin</a>
+			</div>
+		</header>
+
+		<section class="card">
+			<h3 class="section-title">NGO Request Board</h3>
+			<form>
+				<div class="row two">
+					<div>
+						<label for="ngoName">NGO name</label>
+						<input id="ngoName" name="ngoName" type="text" placeholder="e.g., Anna Daanam Trust" required>
+					</div>
+					<div>
+						<label for="ngoContact">Contact</label>
+						<input id="ngoContact" name="ngoContact" type="text" placeholder="e.g., +91 90000 12345" required>
+					</div>
+				</div>
+				<div class="row two">
+					<div>
+						<label for="capacity">Pickup capacity</label>
+						<input id="capacity" name="capacity" type="text" placeholder="e.g., Van available, up to 100 meals" required>
+					</div>
+					<div>
+						<label for="serviceArea">Service area</label>
+						<input id="serviceArea" name="serviceArea" type="text" placeholder="e.g., South Chennai" required>
+					</div>
+				</div>
+				<div class="row">
+					<div>
+						<label for="needs">Needed items (optional)</label>
+						<textarea id="needs" name="needs" placeholder="e.g., Ready-to-eat meals, bread, fruits"></textarea>
+					</div>
+				</div>
+				<div class="actions">
+					<button type="submit">Save locally</button>
+					<button type="reset" class="secondary">Clear</button>
+				</div>
+			</form>
+			<hr class="sep">
+			<h3 class="section-title">Active NGO Requests (examples)</h3>
+			<div class="list">
+				<div class="item">
+					<h4>Anna Daanam Trust • Needs 60 meals</h4>
+					<div class="meta">Area: South Chennai • Capacity: Van available</div>
+					<div class="meta">Contact: +91 90000 12345</div>
+				</div>
+				<div class="item">
+					<h4>Care & Share • Needs bread/fruit for 40</h4>
+					<div class="meta">Area: Velachery • Capacity: Auto pickup</div>
+					<div class="meta">Contact: care@example.com</div>
+				</div>
+			</div>
+		</section>
+
+		<div class="footer">
+			Built with simple HTML + CSS. Ready to connect to Python (Flask/FastAPI) when needed.
+		</div>
+	</div>
+</body>
+</html>
+
+

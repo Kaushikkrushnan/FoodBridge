@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progress Tracking - Surplus-to-NGO</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .status-assigned {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-collected {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-in_transit {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-delivered {
+            background-color: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .info-box {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+        }
+
+        .volunteer-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .volunteer-card.active {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Live Progress Tracking</h1>
+            <p class="text-lg text-gray-600">Real-time tracking of food donations and volunteer movements</p>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-center mb-8">
+            <a href="{{ url_for('index') }}" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-300 mr-4">Home</a>
+            <a href="{{ url_for('dashboard.donor_dashboard') }}" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition duration-300 mr-4">Food Donor Dashboard</a>
+            <a href="{{ url_for('dashboard.ngo_dashboard') }}" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300">NGO Dashboard</a>
+        </div>
+
+        <!-- Top Section: Volunteer Transport Details -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4">Transport Volunteers</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for request in requests %}
+                <div class="volunteer-card {% if request.status == 'in_transit' %}active{% endif %}">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="font-semibold text-gray-800">{{ request.volunteer_name }}</h4>
+                        <span class="status-badge status-{{ request.status }}">
+                            {{ request.status.replace('_', ' ').title() }}
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-1"><strong>Vehicle:</strong> Bike/Car</p>
+                    <p class="text-sm text-gray-600 mb-1"><strong>Contact:</strong> +91 98765 43210</p>
+                    <p class="text-sm text-gray-600 mb-1"><strong>Current Task:</strong> {{ request.donor_name }} → NGO</p>
+                    {% if request.status == 'assigned' %}
+                    <p class="text-sm text-blue-600"><strong>ETA to Pickup:</strong> {{ request.eta_minutes }} min</p>
+                    {% elif request.status == 'in_transit' %}
+                    <p class="text-sm text-green-600"><strong>ETA to NGO:</strong> {{ request.eta_minutes }} min</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Food Donor Details Box -->
+            <div class="info-box">
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">Food Donor Details</h3>
+                <div class="space-y-3">
+                    {% for request in requests %}
+                    <div class="border-b border-gray-200 pb-3 last:border-b-0">
+                        <h4 class="font-medium text-gray-800">{{ request.donor_name }}</h4>
+                        <p class="text-sm text-gray-600"><strong>Food:</strong> {{ request.food_type }}</p>
+                        <p class="text-sm text-gray-600"><strong>Quantity:</strong> {{ request.quantity }}</p>
+                        <p class="text-sm text-gray-600"><strong>Location:</strong> {{ request.pickup_location }}</p>
+                        <p class="text-sm text-gray-600"><strong>Status:</strong>
+                            <span class="status-badge status-{{ request.status }}">
+                                {{ request.status.replace('_', ' ').title() }}
+                            </span>
+                        </p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Map Section (Center) -->
+            <div class="lg:col-span-2 info-box">
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">Live Map Tracking</h3>
+                <div id="map"></div>
+                <p class="text-sm text-gray-500 mt-2">Map updates automatically every 30 seconds</p>
+            </div>
+
+            <!-- NGO Details Box -->
+            <div class="info-box">
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">NGO Details</h3>
+                <div class="space-y-3">
+                    {% if ngos %}
+                        {% for ngo in ngos %}
+                        <div class="border-b border-gray-200 pb-3 last:border-b-0">
+                            <h4 class="font-medium text-gray-800">{{ ngo.name }}</h4>
+                            <p class="text-sm text-gray-600"><strong>Email:</strong> {{ ngo.email }}</p>
+                            {% if ngo.address %}
+                            <p class="text-sm text-gray-600"><strong>Address:</strong> {{ ngo.address }}</p>
+                            {% endif %}
+                            {% if ngo.lat and ngo.lon %}
+                            <p class="text-sm text-gray-600"><strong>Location:</strong> {{ ngo.lat|round(4) }}, {{ ngo.lon|round(4) }}</p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-sm text-gray-500">No NGOs currently receiving donations.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Legend -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mt-8">
+            <h3 class="text-xl font-semibold mb-4">Status Legend</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="flex items-center">
+                    <span class="status-badge status-assigned mr-2">Assigned</span>
+                    <span class="text-sm">Volunteer assigned to pickup</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="status-badge status-collected mr-2">Collected</span>
+                    <span class="text-sm">Food collected from food donor</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="status-badge status-in_transit mr-2">In Transit</span>
+                    <span class="text-sm">On the way to NGO</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="status-badge status-delivered mr-2">Delivered</span>
+                    <span class="text-sm">Successfully delivered</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map centered on Chennai
+        const map = L.map('map').setView([13.0827, 80.2707], 12);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Mock data - in production, this would come from the server
+        const requests = {{ requests|tojson }};
+
+        // Icons for different statuses
+        const icons = {
+            assigned: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            }),
+            collected: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            }),
+            in_transit: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            }),
+            delivered: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            })
+        };
+
+        // Add markers for each request - 3 pointers: Donor, Volunteer, NGO
+        requests.forEach(request => {
+            // 1. Donor location marker (pickup point)
+            if (request.pickup_lat && request.pickup_lon) {
+                const donorMarker = L.marker([request.pickup_lat, request.pickup_lon], {
+                    icon: icons[request.status] || icons.assigned
+                }).addTo(map);
+
+                let donorPopup = `
+                    <div class="text-sm">
+                        <h4 class="font-bold">🏪 ${request.donor_name} (Food Donor)</h4>
+                        <p><strong>Food:</strong> ${request.food_type}</p>
+                        <p><strong>Quantity:</strong> ${request.quantity}</p>
+                        <p><strong>Status:</strong> ${request.status.replace('_', ' ').toUpperCase()}</p>
+                        <p><strong>Volunteer:</strong> ${request.volunteer_name || 'Not assigned'}</p>
+                `;
+
+                if (request.status === 'assigned') {
+                    donorPopup += `<p><strong>ETA to Pickup:</strong> ${request.eta_minutes} minutes</p>`;
+                }
+
+                donorPopup += `</div>`;
+                donorMarker.bindPopup(donorPopup);
+            }
+
+            // 2. Volunteer location marker (current position)
+            if (request.volunteer_lat && request.volunteer_lon) {
+                let volLat = request.volunteer_lat;
+                let volLon = request.volunteer_lon;
+
+                // Simulate movement for in_transit status
+                if (request.status === 'in_transit') {
+                    volLat += (Math.random() - 0.5) * 0.001;
+                    volLon += (Math.random() - 0.5) * 0.001;
+                }
+
+                const volunteerMarker = L.marker([volLat, volLon], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    })
+                }).addTo(map);
+
+                volunteerMarker.bindPopup(`
+                    <div class="text-sm">
+                        <h4 class="font-bold">🚴 ${request.volunteer_name} (Volunteer)</h4>
+                        <p><strong>Status:</strong> ${request.status.replace('_', ' ').toUpperCase()}</p>
+                        <p><strong>Task:</strong> ${request.donor_name} → ${request.ngo_name || 'NGO'}</p>
+                        <p><strong>Rating:</strong> ${request.average_rating ? request.average_rating.toFixed(1) : 'N/A'} ⭐</p>
+                    </div>
+                `);
+            }
+
+            // 3. NGO location marker (delivery destination)
+            if (request.ngo_lat && request.ngo_lon) {
+                const ngoMarker = L.marker([request.ngo_lat, request.ngo_lon], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-violet.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    })
+                }).addTo(map);
+
+                ngoMarker.bindPopup(`
+                    <div class="text-sm">
+                        <h4 class="font-bold">🏢 ${request.ngo_name || 'NGO'} (Destination)</h4>
+                        <p><strong>Address:</strong> ${request.ngo_address || 'Not specified'}</p>
+                        <p><strong>Receiving:</strong> ${request.food_type} from ${request.donor_name}</p>
+                        ${request.status === 'in_transit' ? `<p><strong>ETA:</strong> ${request.eta_minutes} minutes</p>` : ''}
+                    </div>
+                `);
+            }
+        });
+
+        // Function to update volunteer locations (moving markers)
+        let volunteerMarkers = [];
+
+        function updateVolunteerLocations() {
+            // Remove existing volunteer markers
+            volunteerMarkers.forEach(marker => map.removeLayer(marker));
+            volunteerMarkers = [];
+
+            // Add new volunteer markers with slight random movement
+            requests.forEach(request => {
+                if (request.volunteer_lat && request.volunteer_lon) {
+                    // Simulate movement for in_transit status
+                    let lat = request.volunteer_lat;
+                    let lon = request.volunteer_lon;
+
+                    if (request.status === 'in_transit') {
+                        // Add small random movement
+                        lat += (Math.random() - 0.5) * 0.001;
+                        lon += (Math.random() - 0.5) * 0.001;
+                    }
+
+                    const volunteerMarker = L.marker([lat, lon], {
+                        icon: L.icon({
+                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                            iconSize: [25, 41],
+                            iconAnchor: [12, 41],
+                            popupAnchor: [1, -34],
+                            shadowSize: [41, 41]
+                        })
+                    }).addTo(map);
+
+                    volunteerMarker.bindPopup(`
+                        <div class="text-sm">
+                            <h4 class="font-bold">🚴 ${request.volunteer_name} (Volunteer)</h4>
+                            <p><strong>Status:</strong> ${request.status.replace('_', ' ').toUpperCase()}</p>
+                            <p><strong>Task:</strong> ${request.donor_name} → ${request.ngo_name || 'NGO'}</p>
+                            <p><strong>Rating:</strong> ${request.average_rating ? request.average_rating.toFixed(1) : 'N/A'} ⭐</p>
+                        </div>
+                    `);
+
+                    volunteerMarkers.push(volunteerMarker);
+                }
+            });
+        }
+
+        // Initial volunteer location update
+        updateVolunteerLocations();
+
+        // Update every 30 seconds
+        setInterval(updateVolunteerLocations, 30000);
+
+        // Fit map to show all markers
+        const group = new L.featureGroup(requests.map(r => L.marker([r.pickup_lat, r.pickup_lon])));
+        map.fitBounds(group.getBounds().pad(0.1));
+    </script>
+</body>
+</html>

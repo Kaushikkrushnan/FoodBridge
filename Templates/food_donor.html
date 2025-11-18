@@ -1,0 +1,192 @@
+na<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Volunteer Portal • Surplus-to-NGO</title>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+	<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+	<div class="wrapper">
+		<header>
+			<div class="brand">
+				<div class="logo">SF</div>
+				<div>
+					<p class="title">Volunteer Portal</p>
+					<p class="subtitle">Offer your time to help pickups and coordination</p>
+				</div>
+			</div>
+			<div class="actions">
+				<a class="link-btn secondary" href="{{ url_for('index') }}">Back to Home</a>
+			</div>
+		</header>
+
+		<section class="card">
+			<h3 class="section-title">Volunteer Sign-up</h3>
+			<form>
+				<div class="row two">
+					<div>
+						<label for="volName">Your name</label>
+						<input id="volName" name="volName" type="text" placeholder="e.g., Anandan K." required>
+					</div>
+					<div>
+						<label for="volContact">Contact (phone or email)</label>
+						<input id="volContact" name="volContact" type="text" placeholder="e.g., +91 9xxxx xxxxx" required>
+					</div>
+				</div>
+				<div class="row two">
+					<div>
+						<label for="vehicle">Vehicle/Capacity</label>
+						<input id="vehicle" name="vehicle" type="text" placeholder="e.g., Bike, can carry 20 boxes">
+					</div>
+					<div>
+						<label for="area">Preferred area</label>
+						<input id="area" name="area" type="text" placeholder="e.g., Velachery, Adyar">
+					</div>
+				</div>
+				<div class="row">
+					<div>
+						<label for="availability">Availability</label>
+						<textarea id="availability" name="availability" placeholder="e.g., Weekdays 6-9 PM, Weekends any time"></textarea>
+					</div>
+				</div>
+				<div class="actions">
+					<button type="submit">Save locally</button>
+					<button type="reset" class="secondary">Clear</button>
+				</div>
+				<p class="note">Static page. Connect to a Python backend later to manage volunteer assignments.</p>
+			</form>
+			<hr class="sep">
+			<h3 class="section-title">Recent Volunteer Offers (examples)</h3>
+			<div class="list" aria-live="polite">
+				<div class="item">
+					<h4>Priya S. • Bike</h4>
+					<div class="meta">Areas: T. Nagar, Saidapet • Availability: Weekdays 7-9 PM</div>
+				</div>
+				<div class="item">
+					<h4>Rahul M. • Van</h4>
+					<div class="meta">Areas: Adyar, Velachery • Availability: Weekends</div>
+				</div>
+			</div>
+		</section>
+
+		<div class="footer">
+			Built with simple HTML + CSS. Ready to connect to Python (Flask/FastAPI) when needed.
+		</div>
+	</div>
+</body>
+</html> -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Food Donor Portal • Surplus-to-NGO</title>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <!-- This file links to the new CSS file -->
+	<link rel="stylesheet" href="{{ url_for('static', filename='Food_donor.css') }}">
+</head>
+<body>
+	<div class="wrapper">
+		<header>
+			<div class="brand">
+				<div class="logo">SF</div>
+				<div>
+					<p class="title">Food Donor Portal</p>
+					<p class="subtitle">Post your surplus food donation here</p>
+				</div>
+			</div>
+			<div class="actions">
+				<a class="link-btn secondary" href="{{ url_for('index') }}">Back to Home</a>
+				<a class="link-btn secondary" href="{{ url_for('admin.admin') }}">Admin</a>
+			</div>
+		</header>
+
+		<section class="card">
+			<h3 class="section-title">New Food Donation</h3>
+            <!-- 
+                NOTE: This form will need a new route in your Flask app, 
+                e.g., @app.route('/submit_food_request', methods=['POST']) 
+            -->
+			<form action="{{ url_for('donor.submit_food_request') }}" method="POST">
+				<div class="row two">
+					<div>
+						<label for="donor_name">Your Name / Organization Name</label>
+						<input id="donor_name" name="donor_name" type="text" placeholder="e.g., City Bakery" required>
+					</div>
+					<div>
+						<label for="food_type">Food Type</label>
+						<input id="food_type" name="food_type" type="text" placeholder="e.g., Bread, Sandwiches, Biryani" required>
+					</div>
+				</div>
+                <div class="row two">
+                    <div>
+						<label for="quantity">Quantity</label>
+						<input id="quantity" name="quantity" type="text" placeholder="e.g., 50 servings, 20 loaves" required>
+					</div>
+                    <div>
+						<label for="pickup_time">Ready for Pickup Time</label>
+						<input id="pickup_time" name="pickup_time" type="datetime-local" required>
+					</div>
+                </div>
+				<div class="row">
+					<div>
+						<label for="pickup_location">Pickup Location (Full Address)</label>
+						<input id="pickup_location" name="pickup_location" type="text" placeholder="123 Main St, City, State, Zip" required>
+					</div>
+				</div>
+
+                <!-- Food Specifics -->
+                <hr class="sep">
+                <h3 class="section-title">Food Specifications (Optional)</h3>
+                <div class="row three">
+                    <div>
+                        <label for="food_category">Category</label>
+                        <select id="food_category" name="food_category">
+                            <option value="">Select Category</option>
+                            <option value="vegetarian">🥦 Vegetarian</option>
+                            <option value="non_vegetarian">🍗 Non-Vegetarian</option>
+                            <option value="low_sugar">🍰 Low Sugar</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="cuisine_type">Cuisine Type</label>
+                        <select id="cuisine_type" name="cuisine_type">
+                            <option value="">Select Cuisine</option>
+                            <option value="south_indian">🍛 South Indian</option>
+                            <option value="north_indian">🥘 North Indian</option>
+                            <option value="chinese">🍜 Chinese</option>
+                            <option value="italian">🍝 Italian</option>
+                            <option value="western">🍔 Western</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="spice_level">Spice Level</label>
+                        <select id="spice_level" name="spice_level">
+                            <option value="">Select Spice Level</option>
+                            <option value="mild">🧊 Mild</option>
+                            <option value="medium">🔥 Medium</option>
+                            <option value="spicy">🌶️ Spicy</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- End Food Specifics -->
+
+				<div class="actions" style="margin-top: 1.5rem;">
+					<button type="submit">Submit Donation</button>
+					<button type="reset" class="secondary">Clear</button>
+				</div>
+				<p class="note">An available NGO will be notified to accept your request.</p>
+			</form>
+			
+		</section>
+
+		<div class="footer">
+			Thank you for your generosity!
+		</div>
+	</div>
+</body>
+</html>
+

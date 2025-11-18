@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin Dashboard – NGO Verification</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f0f9ff;
+            color: #0f172a;
+            line-height: 1.6;
+        }
+
+        .navbar {
+            background: #0ea5e9;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .navbar ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .navbar a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        h1 {
+            color: #0ea5e9;
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        thead {
+            background: #0ea5e9;
+            color: white;
+        }
+
+        th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #0284c7;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid #e0e7ff;
+        }
+
+        tbody tr {
+            transition: background 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        tr.verified {
+            background: #d1fae5;
+        }
+
+        tr.verified:hover {
+            background: #a7f3d0;
+        }
+
+        tr.pending {
+            background: #fef3c7;
+        }
+
+        tr.pending:hover {
+            background: #fde68a;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .status.verified {
+            background: #10b981;
+            color: white;
+        }
+
+        .status.pending {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+
+        .btn-verify {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-verify:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+
+        .btn-reject {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-reject:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+        }
+
+        .btn-link {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-link:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .cert-link {
+            color: #0ea5e9;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .cert-link:hover {
+            text-decoration: underline;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #64748b;
+        }
+
+        .inline-form {
+            display: inline;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <ul>
+            <li><a href="{{ url_for('index') }}">Home</a></li>
+            <li><a href="{{ url_for('food_donor') }}">Donor</a></li>
+            <li><a href="{{ url_for('auth.ngo_login') }}">NGO</a></li>
+            <li><a href="{{ url_for('admin.admin') }}">Admin</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <h1>Admin Dashboard – NGO Verification</h1>
+
+        <div class="table-container">
+            {% if ngos %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>NGO Name</th>
+                        <th>Email</th>
+                        <th>Registration Number</th>
+                        <th>Certificates</th>
+                        <th>Verification Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ngo in ngos %}
+                    <tr class="{{ 'verified' if ngo.verified else 'pending' }}">
+                        <td><strong>{{ ngo.name or 'N/A' }}</strong></td>
+                        <td>{{ ngo.email or 'N/A' }}</td>
+                        <td>{{ ngo.registration_number or 'N/A' }}</td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                {% if ngo.society_cert %}
+                                <a href="/{{ ngo.society_cert }}" target="_blank" class="cert-link">📄 Society Cert</a>
+                                {% endif %}
+                                {% if ngo.trust_deed %}
+                                <a href="/{{ ngo.trust_deed }}" target="_blank" class="cert-link">📄 Trust Deed</a>
+                                {% endif %}
+                                {% if ngo.section8_cert %}
+                                <a href="/{{ ngo.section8_cert }}" target="_blank" class="cert-link">📄 Section 8 Cert</a>
+                                {% endif %}
+                                {% if not ngo.society_cert and not ngo.trust_deed and not ngo.section8_cert %}
+                                <span style="color: #94a3b8;">No documents</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if ngo.verified %}
+                            <span class="status verified">Verified ✅</span>
+                            {% else %}
+                            <span class="status pending">Pending ⏳</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                {% if not ngo.verified %}
+                                <form action="{{ url_for('admin.verify_ngo', id=ngo.id) }}" method="POST" class="inline-form">
+                                    <button type="submit" class="btn btn-verify">✅ Verify</button>
+                                </form>
+                                <form action="{{ url_for('admin.reject_ngo', id=ngo.id) }}" method="POST" class="inline-form">
+                                    <button type="submit" class="btn btn-reject" onclick="return confirm('Are you sure you want to reject this NGO? This action cannot be undone.');">❌ Reject</button>
+                                </form>
+                                {% endif %}
+                                {% if ngo.registration_number %}
+                                <a href="https://ngodarpan.gov.in/index.php/home/searchbyregno?regno={{ ngo.registration_number }}" target="_blank" class="btn btn-link">🔗 Check on NGO Darpan</a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No NGOs found in the database.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
+

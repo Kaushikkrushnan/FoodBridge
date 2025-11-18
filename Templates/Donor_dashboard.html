@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donor Dashboard</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles reused from the NGO dashboard for consistency */
+        body {
+            font-family: 'Inter', sans-serif; /* A clean, modern font */
+        }
+        
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 50;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.6); /* Dimmed background */
+            -webkit-backdrop-filter: blur(5px);
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal-content {
+            position: relative;
+            margin: 10% auto;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .modal-close {
+            transition: all 0.2s ease;
+        }
+        
+        .modal-close:hover {
+            transform: rotate(90deg);
+        }
+
+        /* Animation keyframes */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Status badge styling */
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px; /* pill shape */
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        
+        .status-vacant { /* Renamed from status-available */
+            background-color: #d1fae5; /* bg-green-100 */
+            color: #065f46; /* text-green-800 */
+        }
+        
+        .status-occupied { /* New */
+            background-color: #fef3c7; /* bg-yellow-100 */
+            color: #92400e; /* text-yellow-800 */
+        }
+
+    </style>
+</head>
+<body class="bg-sky-100 text-gray-900">
+
+    <div class="container max-w-7xl mx-auto p-4 md:p-8">
+        
+        <!-- Header Section -->
+        <div class="dashboard-header text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Donor Dashboard</h1>
+            <p class="text-lg text-gray-600">Connect with verified NGOs to donate surplus food</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex justify-center gap-4 mb-8">
+            <a href="{{ url_for('index') }}" class="btn bg-sky-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-sky-700 transition duration-300">Home</a>
+            <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">Live Progress Tracking</a>
+        </nav>
+
+        <!-- Verified NGOs Section -->
+        <div class="mb-12">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Verified NGOs</h2>
+            <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="ngo-grid">
+                {% if ngos %}
+                    {% for ngo in ngos %}
+                    <div class="ngo-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
+                         data-id="{{ ngo.id }}"
+                         data-name="{{ ngo.name or '' }}"
+                         data-email="{{ ngo.email or '' }}"
+                         data-reg="{{ ngo.registration_number or '' }}"
+                         data-status="{{ ngo.status }}">
+                        <h3 class="text-2xl font-semibold mb-2">{{ ngo.name or 'N/A' }}</h3>
+                        <p><strong>Email:</strong> {{ ngo.email or 'N/A' }}</p>
+                        <p><strong>Registration:</strong> {{ ngo.registration_number or 'N/A' }}</p>
+                        <span class="status-badge {{ 'status-vacant' if ngo.status == 'vacant' else 'status-occupied' }}">{{ ngo.status.title() }}</span>
+                        <div class="mt-4">
+                            <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="openNgoModal({{ ngo.id }})">View Details</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-gray-500 text-lg">No verified NGOs available.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Accepted Food Donors Section -->
+        <div class="mb-12">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Accepted Food Donors</h2>
+            <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="accepted-ngos-grid">
+                {% if accepted_ngos %}
+                    {% for ngo in accepted_ngos %}
+                    <div class="ngo-card bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                        <h3 class="text-2xl font-semibold mb-2">{{ ngo.name or 'N/A' }}</h3>
+                        <p><strong>Email:</strong> {{ ngo.email or 'N/A' }}</p>
+                        <p><strong>Registration:</strong> {{ ngo.registration_number or 'N/A' }}</p>
+                        <p><strong>Accepted Donations:</strong> {{ ngo.accepted_donations_count or 0 }}</p>
+                        <span class="status-badge status-occupied">Accepted Donations</span>
+                        <div class="mt-4">
+                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewAcceptedNgoDetails({{ ngo.id }})">View Details</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-gray-500 text-lg">No accepted food donors yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- "No results" message (hidden by default) -->
+        <div id="no-ngos" class="card bg-white p-6 rounded-lg shadow-md text-center text-gray-500" style="display: none;">
+            <p>No verified NGOs available at the moment.</p>
+        </div>
+
+    </div>
+
+    <!-- NGO Details Modal -->
+    <div id="ngo-modal" class="modal" style="display:none;">
+        <div class="modal-content bg-white rounded-lg shadow-2xl">
+            <span class="modal-close absolute top-4 right-5 text-3xl font-bold text-gray-500 hover:text-red-600 cursor-pointer" onclick="closeNgoModal()">&times;</span>
+            <div id="ngo-modal-body">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Build NGO list from DOM so backend data stays the source of truth
+        function getNgoFromDom(ngoId) {
+            const card = document.querySelector('.ngo-card[data-id="' + ngoId + '"]');
+            if (!card) return null;
+            return {
+                id: ngoId,
+                name: card.dataset.name || 'N/A',
+                email: card.dataset.email || 'N/A',
+                registration_number: card.dataset.reg || 'N/A',
+                status: card.dataset.status || 'vacant'
+            };
+        }
+
+        function openNgoModal(ngoId) {
+            const ngo = getNgoFromDom(ngoId);
+            if (!ngo) {
+                console.error('NGO not found');
+                return;
+            }
+            
+            const modalBody = document.getElementById('ngo-modal-body');
+            
+            // Helper function to safely display text (prevents XSS)
+            const escapeHtml = (text) => {
+                if (!text) return 'N/A';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            };
+            
+            const statusClass = ngo.status === 'vacant' ? 'status-vacant' : 'status-occupied';
+            const statusText = ngo.status.charAt(0).toUpperCase() + ngo.status.slice(1);
+            
+            modalBody.innerHTML = `
+                <h2 class="text-3xl font-bold mb-4">${escapeHtml(ngo.name || 'N/A')}</h2>
+                <p class="text-lg mb-2"><strong>Email:</strong> ${escapeHtml(ngo.email || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Registration Number:</strong> ${escapeHtml(ngo.registration_number || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Status:</strong> <span class="status-badge ${statusClass}">${statusText}</span></p>
+                <hr class="my-6">
+                <h3 class="text-2xl font-semibold mb-3">Contact Information</h3>
+                <p class="text-lg">Email: ${escapeHtml(ngo.email || 'N/A')}</p>
+                <div class="mt-8">
+                    <a href="${ngo.status === 'vacant' ? '/food_donor' : '#'}"
+                       class="btn mt-6 w-full inline-block text-center ${ngo.status === 'occupied' ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'} transition text-lg font-semibold"
+                       ${ngo.status === 'occupied' ? 'aria-disabled="true" onclick="event.preventDefault()"' : 'onclick="markNgoAccepted(' + ngo.id + ')"'}>
+                        ${ngo.status === 'vacant' ? 'Donate Now' : 'Currently Occupied'}
+                    </a>
+                </div>
+            `;
+            
+            document.getElementById('ngo-modal').style.display = 'block';
+        }
+        
+        function closeNgoModal() {
+            document.getElementById('ngo-modal').style.display = 'none';
+        }
+
+        // Move selected NGO card from "Verified" to "Accepted Food Donors"
+        function markNgoAccepted(ngoId) {
+            const verifiedGrid = document.getElementById('ngo-grid');
+            const acceptedGrid = document.getElementById('accepted-ngos-grid');
+            const card = verifiedGrid.querySelector('.ngo-card[data-id="' + ngoId + '"]');
+
+            if (!card || !acceptedGrid) return;
+
+            const clone = card.cloneNode(true);
+
+            // Update badge and text
+            const badge = clone.querySelector('.status-badge');
+            if (badge) {
+                badge.classList.remove('status-vacant');
+                badge.classList.add('status-occupied');
+                badge.textContent = 'Accepted';
+            }
+
+            // Update button styling/text
+            const btn = clone.querySelector('button');
+            if (btn) {
+                btn.textContent = 'View Details';
+                btn.classList.remove('bg-sky-600');
+                btn.classList.add('bg-green-600', 'hover:bg-green-700');
+                btn.setAttribute('onclick', 'viewAcceptedNgoDetails(' + ngoId + ')');
+            }
+
+            acceptedGrid.prepend(clone);
+            card.remove();
+
+            closeNgoModal();
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('ngo-modal');
+            if (event.target === modal) {
+                closeNgoModal();
+            }
+        };
+    </script>
+</body>
+</html>

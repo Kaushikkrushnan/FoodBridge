@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGO Registration</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script>
+        const firebaseConfig = JSON.parse('{{ firebase_config | tojson | safe }}');
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        window.firebaseAuth = auth;
+    </script>
+    <style>
+        .auth-container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+        }
+        .form-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(15, 23, 42, 0.1);
+        }
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+        .message {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+        .message.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+        .status-pill.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status-pill.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .auth-links {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+        .auth-links a {
+            color: var(--primary);
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .auth-links a:hover {
+            text-decoration: underline;
+        }
+        .file-input {
+            border: 2px dashed #cbd5f5;
+            border-radius: 8px;
+            padding: 0.75rem;
+            background: #f8fafc;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <h1 style="text-align: center; color: var(--primary); margin-bottom: 2rem;">
+            Register Your NGO
+        </h1>
+
+        <div class="form-section">
+            <div id="register-message"></div>
+            <form id="register-form">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="ngo-name">NGO Name</label>
+                        <input type="text" id="ngo-name" placeholder="Helping Hearts Trust" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="ngo-email">Official Email</label>
+                        <input type="email" id="ngo-email" placeholder="contact@ngo.org" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="registration-number">Registration Number</label>
+                        <input type="text" id="registration-number" placeholder="TN/2020/0001234" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="ngo-password">Create Password</label>
+                        <input type="password" id="ngo-password" placeholder="Minimum 6 characters" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="ngo-password-confirm">Confirm Password</label>
+                        <input type="password" id="ngo-password-confirm" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="contact-person">Primary Contact</label>
+                        <input type="text" id="contact-person" placeholder="Contact person name">
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem;">
+                    <div class="section-title">Upload Supporting Documents</div>
+                    <p style="color: #475569; margin-bottom: 1rem;">
+                        Accepted formats: PDF, PNG, JPG, JPEG, DOC, DOCX (max 16 MB). Each upload saves immediately.
+                    </p>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Society Certificate</label>
+                            <input type="file" id="society-cert" class="file-input" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx">
+                            <div id="society-status" class="status-pill" style="margin-top: 0.5rem;">
+                                No file uploaded
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Trust Deed</label>
+                            <input type="file" id="trust-deed" class="file-input" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx">
+                            <div id="trust-status" class="status-pill" style="margin-top: 0.5rem;">
+                                No file uploaded
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Section 8 Certificate</label>
+                            <input type="file" id="section8-cert" class="file-input" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx">
+                            <div id="section8-status" class="status-pill" style="margin-top: 0.5rem;">
+                                No file uploaded
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 2rem;">
+                    Complete Registration
+                </button>
+            </form>
+
+            <div class="auth-links">
+                <p>Already registered?</p>
+                <a href="{{ url_for('auth.ngo_login') }}">Go to Login</a>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 2rem;">
+            <a href="{{ url_for('index') }}" class="btn" style="background: var(--text-muted); color: white;">Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+        const uploadedDocs = {
+            society: '',
+            trust: '',
+            section8: ''
+        };
+
+        const fileInputs = [
+            { id: 'society-cert', key: 'society', status: 'society-status' },
+            { id: 'trust-deed', key: 'trust', status: 'trust-status' },
+            { id: 'section8-cert', key: 'section8', status: 'section8-status' }
+        ];
+
+        fileInputs.forEach(({ id, key, status }) => {
+            document.getElementById(id).addEventListener('change', (event) => handleFileUpload(event, key, status));
+        });
+
+        async function handleFileUpload(event, type, statusId) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const statusEl = document.getElementById(statusId);
+            statusEl.textContent = 'Uploading...';
+            statusEl.className = 'status-pill';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('cert_type', type);
+
+                const response = await fetch('/upload_certificate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    uploadedDocs[type] = data.file_path;
+                    statusEl.textContent = 'Uploaded successfully';
+                    statusEl.className = 'status-pill success';
+                } else {
+                    throw new Error(data.message || 'Upload failed');
+                }
+            } catch (error) {
+                statusEl.textContent = error.message || 'Upload failed';
+                statusEl.className = 'status-pill error';
+            }
+        }
+
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('ngo-name').value.trim();
+            const email = document.getElementById('ngo-email').value.trim();
+            const registrationNumber = document.getElementById('registration-number').value.trim();
+            const password = document.getElementById('ngo-password').value;
+            const confirmPassword = document.getElementById('ngo-password-confirm').value;
+
+            if (password !== confirmPassword) {
+                showMessage('register-message', 'Passwords do not match', 'error');
+                return;
+            }
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.innerHTML = 'Processing...';
+            submitBtn.disabled = true;
+
+            try {
+                const userCredential = await window.firebaseAuth.createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                const idToken = await user.getIdToken();
+
+                const response = await fetch('/register_ngo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name,
+                        email,
+                        registration_number: registrationNumber,
+                        id_token: idToken,
+                        society_cert: uploadedDocs.society,
+                        trust_deed: uploadedDocs.trust,
+                        section8_cert: uploadedDocs.section8
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    const successMessage = data.message || 'Registration successful!';
+                    showMessage('register-message', successMessage, 'success');
+                    alert(successMessage + '\nRedirecting you to the NGO Dashboard.');
+
+                    // Ensure Firebase user is fully initialized before redirect
+                    await user.getIdToken(true);
+                    window.location.href = '/ngo_dashboard';
+                } else {
+                    throw new Error(data.message || 'Registration failed');
+                }
+            } catch (error) {
+                const errorMessage = error.message || 'Registration failed';
+                showMessage('register-message', errorMessage, 'error');
+                alert(errorMessage);
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+
+        function showMessage(containerId, message, type) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<div class="message ${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 6000);
+        }
+    </script>
+</body>
+</html>

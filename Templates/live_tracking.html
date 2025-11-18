@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Tracking - FoodBridge</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .volunteer-marker {
+            background-color: #10b981;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .donor-marker {
+            background-color: #ef4444;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .ngo-marker {
+            background-color: #3b82f6;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .status-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .rating-stars {
+            color: #fbbf24;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Live Volunteer Tracking</h1>
+            <p class="text-lg text-gray-600">Real-time tracking of volunteers, donors, and delivery status</p>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-center mb-8">
+            <a href="{{ url_for('index') }}" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-300 mr-4">Home</a>
+            <a href="{{ url_for('dashboard.donor_dashboard') }}" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition duration-300 mr-4">Food Donor Dashboard</a>
+            <a href="{{ url_for('dashboard.ngo_dashboard') }}" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300">NGO Dashboard</a>
+        </div>
+
+        <!-- Map Section -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4">Live Map - Chennai</h2>
+            <div id="map"></div>
+            <p class="text-sm text-gray-500 mt-2">Map updates automatically every 30 seconds • Centered on Chennai</p>
+        </div>
+
+        <!-- Active Deliveries Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Current Assignments -->
+            <div class="status-card">
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">Active Assignments</h3>
+                <div id="active-assignments">
+                    <p class="text-gray-500">Loading assignments...</p>
+                </div>
+            </div>
+
+            <!-- Volunteer Performance -->
+            <div class="status-card">
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">Top Rated Volunteers</h3>
+                <div id="volunteer-ratings">
+                    <p class="text-gray-500">Loading ratings...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="status-card text-center">
+                <h4 class="text-2xl font-bold text-blue-600" id="total-volunteers">-</h4>
+                <p class="text-gray-600">Active Volunteers</p>
+            </div>
+            <div class="status-card text-center">
+                <h4 class="text-2xl font-bold text-green-600" id="active-deliveries">-</h4>
+                <p class="text-gray-600">Active Deliveries</p>
+            </div>
+            <div class="status-card text-center">
+                <h4 class="text-2xl font-bold text-purple-600" id="completed-today">-</h4>
+                <p class="text-gray-600">Completed Today</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map centered on Chennai
+        const map = L.map('map').setView([13.0827, 80.2707], 12);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let volunteerMarkers = [];
+        let donorMarkers = [];
+        let ngoMarkers = [];
+
+        // Custom icons
+        const volunteerIcon = L.divIcon({
+            className: 'volunteer-marker',
+            html: '<div class="pulse"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+
+        const donorIcon = L.divIcon({
+            className: 'donor-marker',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+
+        const ngoIcon = L.divIcon({
+            className: 'ngo-marker',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+
+        // Function to update map markers
+        async function updateMap() {
+            try {
+                // Fetch volunteer locations
+                const volunteerResponse = await fetch('/volunteer/get_available_volunteers?pickup_lat=13.0827&pickup_lon=80.2707&pickup_time=12:00');
+                const volunteerData = await volunteerResponse.json();
+
+                // Clear existing markers
+                volunteerMarkers.forEach(marker => map.removeLayer(marker));
+                volunteerMarkers = [];
+
+                if (volunteerData.success) {
+                    volunteerData.volunteers.forEach(vol => {
+                        const marker = L.marker([vol.lat, vol.lon], {icon: volunteerIcon}).addTo(map);
+                        marker.bindPopup(`
+                            <div class="text-sm">
+                                <h4 class="font-bold">${vol.name}</h4>
+                                <p>Volunteer</p>
+                                <p>Distance: ${vol.distance} km</p>
+                                <p>Contact: ${vol.contact}</p>
+                            </div>
+                        `);
+                        volunteerMarkers.push(marker);
+                    });
+                }
+
+                // Add some mock donor and NGO markers for Chennai
+                const mockDonors = [
+                    {name: 'City Bakery', lat: 13.0827, lon: 80.2707, food: 'Bread & Pastries'},
+                    {name: 'Hotel Paradise', lat: 13.0927, lon: 80.2807, food: 'Rice & Curry'},
+                    {name: 'Cafe Corner', lat: 13.1027, lon: 80.2907, food: 'Sandwiches'}
+                ];
+
+                const mockNGOs = [
+                    {name: 'Helping Hands Foundation', lat: 13.0727, lon: 80.2607},
+                    {name: 'Food for All', lat: 13.0627, lon: 80.2507},
+                    {name: 'City Harvest', lat: 13.0527, lon: 80.2407}
+                ];
+
+                // Clear and add donor markers
+                donorMarkers.forEach(marker => map.removeLayer(marker));
+                donorMarkers = [];
+                mockDonors.forEach(donor => {
+                    const marker = L.marker([donor.lat, donor.lon], {icon: donorIcon}).addTo(map);
+                    marker.bindPopup(`
+                        <div class="text-sm">
+                            <h4 class="font-bold">${donor.name}</h4>
+                            <p>Food Donor</p>
+                            <p>Food: ${donor.food}</p>
+                        </div>
+                    `);
+                    donorMarkers.push(marker);
+                });
+
+                // Clear and add NGO markers
+                ngoMarkers.forEach(marker => map.removeLayer(marker));
+                ngoMarkers = [];
+                mockNGOs.forEach(ngo => {
+                    const marker = L.marker([ngo.lat, ngo.lon], {icon: ngoIcon}).addTo(map);
+                    marker.bindPopup(`
+                        <div class="text-sm">
+                            <h4 class="font-bold">${ngo.name}</h4>
+                            <p>NGO</p>
+                        </div>
+                    `);
+                    ngoMarkers.push(marker);
+                });
+
+            } catch (error) {
+                console.error('Error updating map:', error);
+            }
+        }
+
+        // Function to update assignments
+        async function updateAssignments() {
+            try {
+                const response = await fetch('/dashboard/progress');
+                const data = await response.text();
+
+                // Parse the HTML response to extract assignments (simplified)
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(data, 'text/html');
+                const assignments = doc.querySelectorAll('.volunteer-card');
+
+                let assignmentsHtml = '';
+                assignments.forEach(assignment => {
+                    assignmentsHtml += assignment.outerHTML;
+                });
+
+                if (assignmentsHtml) {
+                    document.getElementById('active-assignments').innerHTML = assignmentsHtml;
+                } else {
+                    document.getElementById('active-assignments').innerHTML = '<p class="text-gray-500">No active assignments</p>';
+                }
+
+            } catch (error) {
+                console.error('Error updating assignments:', error);
+            }
+        }
+
+        // Function to update volunteer ratings
+        async function updateRatings() {
+            try {
+                // Mock top rated volunteers data
+                const mockRatings = [
+                    {name: 'John Doe', rating: 4.8, deliveries: 45},
+                    {name: 'Jane Smith', rating: 4.7, deliveries: 38},
+                    {name: 'Bob Wilson', rating: 4.6, deliveries: 52}
+                ];
+
+                let ratingsHtml = '';
+                mockRatings.forEach(vol => {
+                    const stars = '★'.repeat(Math.floor(vol.rating)) + '☆'.repeat(5 - Math.floor(vol.rating));
+                    ratingsHtml += `
+                        <div class="flex justify-between items-center mb-2">
+                            <div>
+                                <h4 class="font-medium">${vol.name}</h4>
+                                <p class="text-sm text-gray-600">${vol.deliveries} deliveries</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="rating-stars">${stars}</div>
+                                <p class="text-sm text-gray-600">${vol.rating}/5.0</p>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                document.getElementById('volunteer-ratings').innerHTML = ratingsHtml;
+
+            } catch (error) {
+                console.error('Error updating ratings:', error);
+            }
+        }
+
+        // Function to update statistics
+        function updateStatistics() {
+            // Mock statistics
+            document.getElementById('total-volunteers').textContent = Math.floor(Math.random() * 20) + 10;
+            document.getElementById('active-deliveries').textContent = Math.floor(Math.random() * 8) + 2;
+            document.getElementById('completed-today').textContent = Math.floor(Math.random() * 15) + 5;
+        }
+
+        // Initial updates
+        updateMap();
+        updateAssignments();
+        updateRatings();
+        updateStatistics();
+
+        // Update every 30 seconds
+        setInterval(() => {
+            updateMap();
+            updateAssignments();
+            updateRatings();
+            updateStatistics();
+        }, 30000);
+
+        // Fit map to show all markers
+        setTimeout(() => {
+            const group = new L.featureGroup([...volunteerMarkers, ...donorMarkers, ...ngoMarkers]);
+            if (group.getLayers().length > 0) {
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

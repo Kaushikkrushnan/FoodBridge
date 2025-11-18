@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGO Dashboard</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for elements not easily covered by Tailwind */
+        body {
+            font-family: 'Inter', sans-serif; /* A clean, modern font */
+        }
+        
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 50;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.6); /* Dimmed background */
+            -webkit-backdrop-filter: blur(5px);
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal-content {
+            position: relative;
+            margin: 10% auto;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .modal-close {
+            transition: all 0.2s ease;
+        }
+        
+        .modal-close:hover {
+            transform: rotate(90deg);
+        }
+
+        /* Animation keyframes */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Status badge styling */
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px; /* pill shape */
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        
+        .status-active {
+            background-color: #d1fae5; /* bg-green-100 */
+            color: #065f46; /* text-green-800 */
+        }
+        
+        .food-icons {
+            display: flex;
+            gap: 0.75rem; /* gap-3 */
+            font-size: 1.5rem; /* text-2xl */
+            margin-top: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+    </style>
+</head>
+<body class="bg-sky-100 text-gray-900">
+
+    <div class="container max-w-7xl mx-auto p-4 md:p-8">
+        
+        <!-- Header Section -->
+        <div class="dashboard-header text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">NGO Dashboard</h1>
+            <p class="text-lg text-gray-600">View and manage active food donation requests</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex justify-center gap-4 mb-8">
+            <a href="{{ url_for('index') }}" class="btn bg-sky-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-sky-700 transition duration-300">Home</a>
+            <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">Live Progress Tracking</a>
+        </nav>
+
+        <!-- Search and Filter Section -->
+        <div class="search-filter bg-white p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row gap-4 flex-wrap">
+            <input type="text" id="search-input" placeholder="Search by donor name or food type..." onkeyup="filterRequests()" class="w-full md:flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 min-w-[200px]">
+            <select id="cuisine-filter" onchange="filterRequests()" class="w-full md:w-auto p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
+                <option value="">All Cuisines</option>
+                <option value="south_indian">🍛 South Indian</option>
+                <option value="north_indian">🥘 North Indian</option>
+                <option value="chinese">🍜 Chinese</option>
+                <option value="italian">🍝 Italian</option>
+                <option value="western">🍔 Western</option>
+                <option value="other">Other</option>
+            </select>
+            <select id="spice-filter" onchange="filterRequests()" class="w-full md:w-auto p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
+                <option value="">All Spice Levels</option>
+                <option value="mild">🧊 Mild</option>
+                <option value="medium">🔥 Medium</option>
+                <option value="spicy">🌶️ Spicy</option>
+            </select>
+            <select id="spec-filter" onchange="filterRequests()" class="w-full md:w-auto p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
+                <option value="">All Specs</option>
+                <option value="vegetarian">🥦 Vegetarian</option>
+                <option value="non_vegetarian">🍗 Non-Vegetarian</option>
+                <option value="low_sugar">🍰 Low Sugar</option>
+            </select>
+        </div>
+
+        <!-- Active Food Requests Section -->
+        <div class="mb-12">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Active Food Requests</h2>
+            <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="active-requests-grid">
+                {% if food_requests %}
+                    {% for request in food_requests %}
+                    <div class="request-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
+                         data-id="{{ request.id }}"
+                         data-cuisine="{{ request.cuisine_type or '' }}"
+                         data-spice="{{ request.spice_level or '' }}"
+                         data-spec="{{ request.food_category or '' }}"
+                         data-search="{{ request.donor_name|lower }} {{ request.food_type|lower }}">
+                        <h3 class="text-2xl font-semibold mb-2">{{ request.donor_name or 'Anonymous' }}</h3>
+                        <p><strong>Food Type:</strong> {{ request.food_type or 'N/A' }}</p>
+                        <p><strong>Quantity:</strong> {{ request.quantity or 'N/A' }}</p>
+                        <p><strong>Pickup Location:</strong> {{ request.pickup_location or 'N/A' }}</p>
+                        <p><strong>Pickup Time:</strong> {{ request.pickup_time or 'N/A' }}</p>
+
+                        <div class="food-icons">
+                            {% if request.food_category == 'vegetarian' %}<span title="Vegetarian">🥦</span>{% endif %}
+                            {% if request.food_category == 'non_vegetarian' %}<span title="Non-Vegetarian">🍗</span>{% endif %}
+                            {% if request.food_category == 'low_sugar' %}<span title="Low Sugar">🍰</span>{% endif %}
+                            {% if request.spice_level == 'mild' %}<span title="Mild">🧊</span>{% endif %}
+                            {% if request.spice_level == 'medium' %}<span title="Medium">🔥</span>{% endif %}
+                            {% if request.spice_level == 'spicy' %}<span title="Spicy">🌶️</span>{% endif %}
+                            {% if request.cuisine_type == 'south_indian' %}<span title="South Indian">🍛</span>{% endif %}
+                            {% if request.cuisine_type == 'north_indian' %}<span title="North Indian">🥘</span>{% endif %}
+                            {% if request.cuisine_type == 'chinese' %}<span title="Chinese">🍜</span>{% endif %}
+                            {% if request.cuisine_type == 'italian' %}<span title="Italian">🍝</span>{% endif %}
+                            {% if request.cuisine_type == 'western' %}<span title="Western">🍔</span>{% endif %}
+                        </div>
+
+                        <span class="status-badge status-active">Active</span>
+                        <div class="mt-4">
+                            <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="openRequestModal({{ request.id }})">Review & Accept</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-gray-500 text-lg">No active food requests available.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Assigned Food Requests Section -->
+        <div class="mb-12">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Assigned Food Requests</h2>
+            <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="assigned-requests-grid">
+                {% if assigned_requests %}
+                    {% for request in assigned_requests %}
+                    <div class="request-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
+                         data-id="{{ request.id }}"
+                         data-cuisine="{{ request.cuisine_type or '' }}"
+                         data-spice="{{ request.spice_level or '' }}"
+                         data-spec="{{ request.food_category or '' }}"
+                         data-search="{{ request.donor_name|lower }} {{ request.food_type|lower }}">
+                        <h3 class="text-2xl font-semibold mb-2">{{ request.donor_name or 'Anonymous' }}</h3>
+                        <p><strong>Food Type:</strong> {{ request.food_type or 'N/A' }}</p>
+                        <p><strong>Quantity:</strong> {{ request.quantity or 'N/A' }}</p>
+                        <p><strong>Pickup Location:</strong> {{ request.pickup_location or 'N/A' }}</p>
+                        <p><strong>Pickup Time:</strong> {{ request.pickup_time or 'N/A' }}</p>
+                        <p><strong>Assigned Volunteer:</strong> {{ request.volunteer_name or 'N/A' }}</p>
+                        <p><strong>Status:</strong> {{ request.status.title() }}</p>
+
+                        <div class="food-icons">
+                            {% if request.food_category == 'vegetarian' %}<span title="Vegetarian">🥦</span>{% endif %}
+                            {% if request.food_category == 'non_vegetarian' %}<span title="Non-Vegetarian">🍗</span>{% endif %}
+                            {% if request.food_category == 'low_sugar' %}<span title="Low Sugar">🍰</span>{% endif %}
+                            {% if request.spice_level == 'mild' %}<span title="Mild">🧊</span>{% endif %}
+                            {% if request.spice_level == 'medium' %}<span title="Medium">🔥</span>{% endif %}
+                            {% if request.spice_level == 'spicy' %}<span title="Spicy">🌶️</span>{% endif %}
+                            {% if request.cuisine_type == 'south_indian' %}<span title="South Indian">🍛</span>{% endif %}
+                            {% if request.cuisine_type == 'north_indian' %}<span title="North Indian">🥘</span>{% endif %}
+                            {% if request.cuisine_type == 'chinese' %}<span title="Chinese">🍜</span>{% endif %}
+                            {% if request.cuisine_type == 'italian' %}<span title="Italian">🍝</span>{% endif %}
+                            {% if request.cuisine_type == 'western' %}<span title="Western">🍔</span>{% endif %}
+                        </div>
+
+                        <span class="status-badge status-active">{{ request.status.title() }}</span>
+                        <div class="mt-4">
+                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewAssignedRequest({{ request.id }})">View Details</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-gray-500 text-lg">No assigned food requests.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- "No results" message (hidden by default) -->
+        <div id="no-results" class="card bg-white p-6 rounded-lg shadow-md text-center text-gray-500" style="display: none;">
+            <p>No active food requests match your filters.</p>
+        </div>
+
+    </div>
+
+    <!-- Request Details Modal -->
+    <div id="request-modal" class="modal">
+        <div class="modal-content bg-white rounded-lg shadow-2xl">
+            <span class="modal-close absolute top-4 right-5 text-3xl font-bold text-gray-500 hover:text-red-600 cursor-pointer" onclick="closeRequestModal()">&times;</span>
+            <div id="request-modal-body">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock data that replaces the server-side `{{ food_requests | tojson }}`
+        var foodRequests = [
+            {
+                "id": 1,
+                "donor_name": "Good Samaritan Foods",
+                "food_type": "Chicken Biryani",
+                "quantity": "50 servings",
+                "pickup_location": "123 Main St, Downtown",
+                "pickup_time": "2025-11-14T14:00",
+                "food_category": "non_vegetarian",
+                "cuisine_type": "north_indian",
+                "spice_level": "spicy",
+                "pickup_lat": 12.9716,
+                "pickup_lon": 77.5946
+            },
+            {
+                "id": 2,
+                "donor_name": "City Bakery",
+                "food_type": "Assorted Sandwiches",
+                "quantity": "100 items",
+                "pickup_location": "456 Oak Ave, Suburb",
+                "pickup_time": "2025-11-14T12:00",
+                "food_category": "vegetarian",
+                "cuisine_type": "western",
+                "spice_level": "mild",
+                "pickup_lat": 12.9216,
+                "pickup_lon": 77.5346
+            },
+            {
+                "id": 3,
+                "donor_name": "Anonymous",
+                "food_type": "Vegetable Pasta",
+                "quantity": "30 servings",
+                "pickup_location": "789 Pine Rd, Uptown",
+                "pickup_time": "2025-11-14T13:00",
+                "food_category": "low_sugar", // Also vegetarian, but we'll use food_category for the main spec
+                "cuisine_type": "italian",
+                "spice_level": "medium",
+                "pickup_lat": 12.9916,
+                "pickup_lon": 77.6146
+            }
+        ];
+        
+        function filterRequests() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const cuisineFilter = document.getElementById('cuisine-filter').value;
+            const spiceFilter = document.getElementById('spice-filter').value;
+            const specFilter = document.getElementById('spec-filter').value; // New filter
+            const noResultsMessage = document.getElementById('no-results');
+            
+            const cards = document.querySelectorAll('.request-card');
+            let visibleCount = 0;
+
+            cards.forEach(card => {
+                const searchText = card.getAttribute('data-search').toLowerCase();
+                const cuisine = card.getAttribute('data-cuisine');
+                const spice = card.getAttribute('data-spice');
+                const spec = card.getAttribute('data-spec'); // New data attribute
+                
+                const matchesSearch = !searchTerm || searchText.includes(searchTerm);
+                const matchesCuisine = !cuisineFilter || cuisine === cuisineFilter;
+                const matchesSpice = !spiceFilter || spice === spiceFilter;
+                const matchesSpec = !specFilter || spec === specFilter; // New match condition
+                
+                if (matchesSearch && matchesCuisine && matchesSpice && matchesSpec) { // Added matchesSpec
+                    card.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            // Show or hide the "no results" message
+            if (visibleCount === 0) {
+                noResultsMessage.style.display = 'block';
+            } else {
+                noResultsMessage.style.display = 'none';
+            }
+        }
+        
+        function openRequestModal(requestId) {
+            const request = foodRequests.find(r => r.id === requestId);
+            if (!request) {
+                console.error('Request not found');
+                return;
+            }
+            
+            const modalBody = document.getElementById('request-modal-body');
+            let icons = '';
+            if (request.food_category === 'vegetarian') icons += '<span title="Vegetarian">🥦</span> ';
+            if (request.food_category === 'low_sugar') icons += '<span title="Low Sugar">🍰</span> ';
+            if (request.food_category === 'non_vegetarian') icons += '<span title="Non-Vegetarian">🍗</span> '; // Added
+            if (request.spice_level === 'spicy') icons += '<span title="Spicy">🌶️</span> ';
+            if (request.cuisine_type === 'south_indian') icons += '<span title="South Indian">🍛</span> '; // Updated
+            if (request.cuisine_type === 'north_indian') icons += '<span title="North Indian">🥘</span> '; // Added
+            if (request.cuisine_type === 'chinese') icons += '<span title="Chinese">🍜</span> '; // Added
+            if (request.cuisine_type === 'italian') icons += '<span title="Italian">🍝</span> '; // Added
+            if (request.cuisine_type === 'western') icons += '<span title="Western">🍔</span> ';
+            
+            // Helper function to safely display text (prevents XSS)
+            const escapeHtml = (text) => {
+                if (!text) return 'N/A';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            };
+            
+            const pickupTime = escapeHtml(request.pickup_time || '');
+            const pickupLat = request.pickup_lat || 0;
+            const pickupLon = request.pickup_lon || 0;
+            
+            modalBody.innerHTML = `
+                <h2 class="text-3xl font-bold mb-4">Food Request Details</h2>
+                <p class="text-lg mb-2"><strong>Donor:</strong> ${escapeHtml(request.donor_name || 'Anonymous')}</p>
+                <p class="text-lg mb-2"><strong>Food Type:</strong> ${escapeHtml(request.food_type || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Quantity:</strong> ${escapeHtml(request.quantity || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Pickup Location:</strong> ${escapeHtml(request.pickup_location || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Pickup Time:</strong> ${pickupTime}</p>
+                <p class="text-lg mb-2"><strong>Food Category:</strong> ${escapeHtml(request.food_category || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Cuisine Type:</strong> ${escapeHtml(request.cuisine_type || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Spice Level:</strong> ${escapeHtml(request.spice_level || 'N/A')}</p>
+                <div class="food-icons" style="margin: 1rem 0;">${icons || '<span>No special tags</span>'}</div>
+                <hr class="my-6">
+                <div id="assign-action-area">
+                    <button id="assign-btn" class="btn w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition text-lg font-semibold" onclick="assignVolunteer(${request.id}, ${pickupLat}, ${pickupLon}, '${pickupTime}')">
+                        Accept & Assign Volunteer
+                    </button>
+                    <div id="assign-message" class="mt-4 text-center"></div>
+                </div>
+            `;
+            
+            document.getElementById('request-modal').style.display = 'block';
+        }
+        
+        function closeRequestModal() {
+            document.getElementById('request-modal').style.display = 'none';
+        }
+        
+        // Assigns volunteer via API call
+        function assignVolunteer(requestId, lat, lon, time) {
+            if (!lat || !lon || lat === 0 || lon === 0) {
+                const messageDiv = document.getElementById('assign-message');
+                messageDiv.innerHTML = `<span class="text-red-600 font-semibold">Error: Invalid pickup location. Cannot assign.</span>`;
+                return;
+            }
+
+            const assignButton = document.getElementById('assign-btn');
+            const messageDiv = document.getElementById('assign-message');
+
+            assignButton.disabled = true;
+            assignButton.textContent = 'Assigning...';
+            messageDiv.innerHTML = `<span class="text-sky-600">Finding nearest volunteer...</span>`;
+
+            // Make API call to accept the request
+            fetch('/ngo/accept_food_request', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    ngo_id: 1, // TODO: Get from session/user context
+                    request_id: requestId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    messageDiv.innerHTML = `
+                        <span class="text-green-700 font-semibold">
+                            ${data.message}
+                        </span>
+                    `;
+                    assignButton.textContent = 'Accepted';
+
+                    // Move card from Active to Assigned section on the fly
+                    const activeGrid = document.getElementById('active-requests-grid');
+                    const assignedGrid = document.getElementById('assigned-requests-grid');
+                    const card = activeGrid.querySelector('.request-card[data-id="' + requestId + '"]');
+
+                    if (card && assignedGrid) {
+                        const clone = card.cloneNode(true);
+
+                        // Update assigned card content with volunteer name and status if provided
+                        const statusBadge = clone.querySelector('.status-badge');
+                        if (statusBadge) {
+                            statusBadge.textContent = (data.status || 'assigned').toString().toUpperCase();
+                        }
+                        const volunteerLine = clone.querySelector('p:nth-of-type(6)');
+                        if (volunteerLine && data.volunteer_name) {
+                            volunteerLine.innerHTML = '<strong>Assigned Volunteer:</strong> ' + data.volunteer_name;
+                        }
+
+                        // Change button to "View Details"
+                        const btn = clone.querySelector('button');
+                        if (btn) {
+                            btn.textContent = 'View Details';
+                            btn.classList.remove('bg-sky-600');
+                            btn.classList.add('bg-green-600', 'hover:bg-green-700');
+                            btn.setAttribute('onclick', 'viewAssignedRequest(' + requestId + ')');
+                        }
+
+                        assignedGrid.prepend(clone);
+                        card.remove();
+                    }
+
+                    setTimeout(() => {
+                        closeRequestModal();
+                    }, 1500);
+                } else {
+                    messageDiv.innerHTML = `<span class="text-red-600 font-semibold">Error: ${data.message}</span>`;
+                    assignButton.disabled = false;
+                    assignButton.textContent = 'Accept & Assign Volunteer';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                messageDiv.innerHTML = `<span class="text-red-600 font-semibold">Error: Network error occurred.</span>`;
+                assignButton.disabled = false;
+                assignButton.textContent = 'Accept & Assign Volunteer';
+            });
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('request-modal');
+            if (event.target == modal) {
+                closeRequestModal();
+            }
+        }
+    </script>
+</body>
+</html>
