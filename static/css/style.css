@@ -159,11 +159,19 @@ button {
 	border-radius: 10px;
 	font-weight: 700;
 	cursor: pointer;
+	transition: background-color 0.3s ease;
 }
 button.secondary {
 	background: transparent;
 	border: 1px solid var(--border);
 	color: var(--text);
+}
+button:disabled, .btn:disabled {
+	background: var(--border);
+	cursor: not-allowed;
+}
+button:hover:not(:disabled), .btn:hover:not(:disabled){
+	background: var(--accent-2);
 }
 .btn {
 	appearance: none;
@@ -176,6 +184,7 @@ button.secondary {
 	cursor: pointer;
 	text-decoration: none;
 	display: inline-block;
+	transition: background-color 0.3s ease;
 }
 .btn-primary {
 	background: var(--primary);
@@ -220,4 +229,215 @@ hr.sep {
 }
 .input-group {
 	margin-bottom: 1rem;
+}
+
+/* Added NGO login page styles for presentation */
+
+.auth-container {
+	max-width: 480px;
+	margin: 3rem auto;
+	padding: 2rem;
+	background: var(--card);
+	border-radius: 14px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.tabs {
+	display: flex;
+	gap: 1rem;
+	margin-bottom: 1.5rem;
+	border-bottom: 2px solid var(--border);
+}
+
+.tab {
+	flex-grow: 1;
+	text-align: center;
+	padding: 0.8rem 0;
+	cursor: pointer;
+	background: none;
+	border: none;
+	font-size: 1.1rem;
+	font-weight: 700;
+	color: var(--muted);
+	border-bottom: 3px solid transparent;
+	transition: all 0.3s ease;
+	border-radius: 6px 6px 0 0;
+}
+
+.tab:hover:not(.active) {
+	color: var(--primary);
+}
+
+.tab.active {
+	color: var(--primary);
+	border-bottom-color: var(--primary);
+	font-weight: 800;
+}
+
+.tab-content {
+	display: none;
+}
+
+.tab-content.active {
+	display: block;
+}
+
+.form-section {
+	display: flex;
+	flex-direction: column;
+	gap: 1.25rem;
+}
+
+h1.auth-title {
+	text-align: center;
+	color: var(--primary);
+	font-weight: 900;
+	font-size: 2rem;
+	margin-bottom: 1.5rem;
+	letter-spacing: 1px;
+}
+
+h2.section-heading {
+	font-weight: 700;
+	font-size: 1.3rem;
+	border-bottom: 2px solid var(--border);
+	padding-bottom: 0.35rem;
+	margin-bottom: 1rem;
+	color: var(--text);
+}
+
+.input-group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	margin-bottom: 1rem;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+	padding: 0.55rem 0.75rem;
+	font-size: 1rem;
+	border-radius: 8px;
+	border: 1.8px solid var(--border);
+	transition: border-color 0.3s ease;
+}
+
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="text"]:focus {
+	outline: none;
+	border-color: var(--primary);
+	box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+}
+
+button.btn-primary {
+	width: 100%;
+	padding: 0.7rem;
+	font-weight: 700;
+	font-size: 1rem;
+	border-radius: 10px;
+	background: var(--primary);
+	color: white;
+	cursor: pointer;
+	border: none;
+	transition: background-color 0.3s ease;
+}
+
+button.btn-primary:disabled {
+	background: var(--border);
+	cursor: not-allowed;
+}
+
+button.btn-primary:hover:not(:disabled) {
+	background: var(--accent);
+}
+
+.file-upload {
+	border: 2px dashed var(--border);
+	padding: 1.5rem 1rem;
+	text-align: center;
+	border-radius: 6px;
+	margin-bottom: 1rem;
+	cursor: pointer;
+	transition: border-color 0.3s ease;
+	font-weight: 600;
+	color: var(--muted);
+}
+
+.file-upload:hover {
+	border-color: var(--primary);
+	color: var(--primary);
+}
+
+.file-list {
+	margin-top: 0.5rem;
+}
+
+.file-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 0.5rem;
+	background: var(--bg);
+	border-radius: 6px;
+	margin-bottom: 0.35rem;
+	font-size: 0.9rem;
+}
+
+.message {
+	padding: 0.85rem 1rem;
+	border-radius: 8px;
+	margin-bottom: 1rem;
+	font-weight: 600;
+	font-size: 0.95rem;
+	animation: fadein 0.3s ease;
+}
+
+.message.success {
+	background: var(--success);
+	color: white;
+}
+
+.message.error {
+	background: var(--danger);
+	color: white;
+}
+
+.loading {
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+	border: 3px solid #f3f3f3;
+	border-top: 3px solid var(--primary);
+	border-radius: 50%;
+	animation: spin 1s linear infinite;
+	vertical-align: middle;
+}
+
+@keyframes spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes fadein {
+	from {
+		opacity: 0;
+		transform: translateY(-5%);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.back-home {
+	display: inline-block;
+	margin-top: 2rem;
+	text-align: center;
+	width: 100%;
 }

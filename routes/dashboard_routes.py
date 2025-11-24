@@ -1,8 +1,9 @@
 """
 Dashboard routes for Donor and NGO dashboards
 """
-from flask import Blueprint, render_template
-from db import get_db_connection
+from flask import Blueprint, render_template, session, request
+from db import get_db_connection, get_auth_db_connection
+from database.session_manager import get_user_from_session, update_session_activity
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -10,80 +11,269 @@ dashboard_bp = Blueprint('dashboard', __name__)
 @dashboard_bp.route('/donor_dashboard')
 def donor_dashboard():
     """
-    Render donor dashboard showing verified NGOs and accepted food donors (NGOs that accepted donations).
+    Render donor dashboard showing Available NGOs, Requested NGOs, Accepted NGOs from auth.db.
+    Also fetch and provide donor's food donations from SQLite database.
     """
-    conn = get_db_connection()
+    from flask import session
+    # Get user info from database session if available
+    db_session_id = session.get('db_session_id')
+    if db_session_id:
+        db_user = get_user_from_session(db_session_id)
+        if db_user:
+            update_session_activity(db_session_id)
+            user_info = db_user
+            current_donor_name = db_user.get('user_name', None)
+        else:
+            # Fallback to Flask session
+            user_info = {
+                'user_name': session.get('user_name', 'Food Donor'),
+                'user_email': session.get('user_email', ''),
+                'user_role': session.get('user_role', 'Donor'),
+                'user_registration': session.get('user_registration', ''),
+                'user_verified': session.get('user_verified', False)
+            }
+            current_donor_name = session.get('user_name', None)
+    else:
+        # Fallback to Flask session
+        user_info = {
+            'user_name': session.get('user_name', 'Food Donor'),
+            'user_email': session.get('user_email', ''),
+            'user_role': session.get('user_role', 'Donor'),
+            'user_registration': session.get('user_registration', ''),
+            'user_verified': session.get('user_verified', False)
+        }
+        current_donor_name = session.get('user_name', None)
+    
+    auth_conn = get_auth_db_connection()
+    app_conn = get_db_connection()
 
-    # Get only verified NGOs with their current request status
-    ngos = conn.execute('''
-        SELECT n.*,
-               CASE WHEN EXISTS(
-                   SELECT 1 FROM food_requests fr
-                   WHERE fr.ngo_id = n.id AND fr.status IN ('assigned', 'collected', 'in_transit')
-               ) THEN 'occupied' ELSE 'vacant' END as status
-        FROM ngos n WHERE n.verified = 1 ORDER BY n.name
+    # Get all users from auth.db
+    all_ngos = auth_conn.execute('''
+        SELECT id, name, email, registration_number, verified
+        FROM users
+        ORDER BY name
     ''').fetchall()
 
-    # Get accepted NGOs (NGOs that have accepted food donations)
-    accepted_ngos = conn.execute('''
-        SELECT DISTINCT n.*, COUNT(fr.id) as accepted_donations_count
-        FROM ngos n
-        JOIN food_requests fr ON n.id = fr.ngo_id
-        WHERE fr.status IN ('assigned', 'collected', 'in_transit')
-        GROUP BY n.id ORDER BY n.name
-    ''').fetchall()
+    # For now, show all NGOs from auth.db as available
+    # TODO: Implement proper categorization based on food_requests status
+    available_ngos = [dict(ngo) for ngo in all_ngos]
+    requested_ngos = []
+    accepted_ngos = []
 
-    conn.close()
+    # Fetch food donations submitted by current donor from food_donors table
+    if current_donor_name:
+        donor_food_donations = app_conn.execute('''
+            SELECT id, organization_name, food_type, quantity, ready_for_pickup_time, pickup_location,
+                   category, cuisine_type, spice_level, created_at
+            FROM food_donors
+            WHERE organization_name = ?
+            ORDER BY created_at DESC
+        ''', (current_donor_name,)).fetchall()
+        donor_food_donations = [dict(row) for row in donor_food_donations]
+    else:
+        donor_food_donations = []
 
-    # Convert Row objects to dicts for JSON serialization
-    ngos_dict = [dict(row) for row in ngos]
-    accepted_ngos_dict = [dict(row) for row in accepted_ngos]
+    auth_conn.close()
+    app_conn.close()
 
-    return render_template('donor_dashboard.html', ngos=ngos_dict, accepted_ngos=accepted_ngos_dict)
+    return render_template('donor_dashboard.html', 
+                         available_ngos=available_ngos, 
+                         requested_ngos=requested_ngos, 
+                         accepted_ngos=accepted_ngos,
+                         donor_food_donations=donor_food_donations,
+                         **user_info)
 
 
 @dashboard_bp.route('/ngo_dashboard')
 def ngo_dashboard():
     """
-    Render NGO dashboard showing active food requests and assigned food donors.
+    Render NGO dashboard showing Available and Accepted Food Donations from food_donors table.
     """
+    # Get user info from database session if available
+    db_session_id = session.get('db_session_id')
+    if db_session_id:
+        db_user = get_user_from_session(db_session_id)
+        if db_user:
+            update_session_activity(db_session_id)
+            user_info = db_user
+        else:
+            # Fallback to Flask session
+            user_info = {
+                'user_name': session.get('user_name', ''),
+                'user_email': session.get('user_email', ''),
+                'user_role': session.get('user_role', 'NGO'),
+                'user_registration': session.get('user_registration', ''),
+                'user_verified': session.get('user_verified', False)
+            }
+    else:
+        # Fallback to Flask session
+        user_info = {
+            'user_name': session.get('user_name', ''),
+            'user_email': session.get('user_email', ''),
+            'user_role': session.get('user_role', 'NGO'),
+            'user_registration': session.get('user_registration', ''),
+            'user_verified': session.get('user_verified', False)
+        }
+    
     conn = get_db_connection()
 
-    # Get active food requests with donor info
-    active_requests = conn.execute('''
-        SELECT fr.*, n.name as ngo_name, n.email as ngo_email
-        FROM food_requests fr
-        LEFT JOIN ngos n ON fr.ngo_id = n.id
-        WHERE fr.status = 'active' ORDER BY fr.id DESC
+    # Get Available Food Donations (status IS NULL or 'requested' - not yet accepted)
+    available_donations = conn.execute('''
+        SELECT id, organization_name as donor_name, food_type, quantity, ready_for_pickup_time as pickup_time, pickup_location, category as food_category, cuisine_type, spice_level, created_at
+        FROM food_donors
+        WHERE (status IS NULL OR status = 'requested')
+        ORDER BY id DESC
     ''').fetchall()
 
-    # Get assigned food requests (assigned to NGOs)
-    assigned_requests = conn.execute('''
-        SELECT fr.*, n.name as ngo_name, n.email as ngo_email, v.name as volunteer_name
-        FROM food_requests fr
-        LEFT JOIN ngos n ON fr.ngo_id = n.id
-        LEFT JOIN volunteers v ON fr.assigned_volunteer_id = v.id
-        WHERE fr.status IN ('assigned', 'collected', 'in_transit') ORDER BY fr.id DESC
+    # Get Accepted Food Donations (status = 'accepted' only - explicitly accepted by NGO) with volunteer info
+    accepted_donations = conn.execute('''
+        SELECT fd.id, fd.organization_name as donor_name, fd.food_type, fd.quantity, fd.ready_for_pickup_time as pickup_time, fd.pickup_location, fd.category as food_category, fd.cuisine_type, fd.spice_level, fd.status, fd.created_at, v.name as volunteer_name
+        FROM food_donors fd
+        LEFT JOIN volunteers v ON fd.assigned_volunteer_id = v.id
+        WHERE fd.status = 'accepted'
+        ORDER BY fd.id DESC
     ''').fetchall()
 
     conn.close()
 
     # Convert Row objects to dicts for JSON serialization
-    active_requests_dict = [dict(row) for row in active_requests]
-    assigned_requests_dict = [dict(row) for row in assigned_requests]
+    available_donations_dict = [dict(row) for row in available_donations]
+    accepted_donations_dict = [dict(row) for row in accepted_donations]
 
-    return render_template('ngo_dashboard.html', food_requests=active_requests_dict, assigned_requests=assigned_requests_dict)
+    return render_template('NGO_dashboard.html', 
+                         available_donations=available_donations_dict, 
+                         accepted_donations=accepted_donations_dict,
+                         **user_info)
+
+
+@dashboard_bp.route('/ngo/my_accepted_donations')
+def ngo_my_accepted_donations():
+    """
+    Render NGO's own accepted donations page.
+    Shows only donations accepted by the current NGO (filtered by selected_ngo_id).
+    For now, we'll show all accepted donations. In production, filter by logged-in NGO's ID.
+    """
+    # Get user info from database session if available
+    db_session_id = session.get('db_session_id')
+    if db_session_id:
+        db_user = get_user_from_session(db_session_id)
+        if db_user:
+            update_session_activity(db_session_id)
+            user_info = db_user
+        else:
+            # Fallback to Flask session
+            user_info = {
+                'user_name': session.get('user_name', ''),
+                'user_email': session.get('user_email', ''),
+                'user_role': session.get('user_role', 'NGO'),
+                'user_registration': session.get('user_registration', ''),
+                'user_verified': session.get('user_verified', False)
+            }
+    else:
+        # Fallback to Flask session
+        user_info = {
+            'user_name': session.get('user_name', ''),
+            'user_email': session.get('user_email', ''),
+            'user_role': session.get('user_role', 'NGO'),
+            'user_registration': session.get('user_registration', ''),
+            'user_verified': session.get('user_verified', False)
+        }
+    
+    conn = get_db_connection()
+    
+    # Get accepted donations with volunteer info
+    # TODO: Filter by current NGO's ID when authentication is implemented
+    # For now, showing all accepted donations
+    accepted_donations = conn.execute('''
+        SELECT fd.id, fd.organization_name as donor_name, fd.food_type, fd.quantity, 
+               fd.ready_for_pickup_time as pickup_time, fd.pickup_location, 
+               fd.category as food_category, fd.cuisine_type, fd.spice_level, 
+               fd.status, fd.created_at, fd.selected_ngo_id,
+               v.name as volunteer_name, v.contact as volunteer_contact
+        FROM food_donors fd
+        LEFT JOIN volunteers v ON fd.assigned_volunteer_id = v.id
+        WHERE fd.status = 'accepted'
+        ORDER BY fd.id DESC
+    ''').fetchall()
+    
+    conn.close()
+    
+    accepted_donations_dict = [dict(row) for row in accepted_donations]
+    
+    return render_template('NGO_my_accepted_donations.html', 
+                         accepted_donations=accepted_donations_dict,
+                         **user_info)
+
+
+@dashboard_bp.route('/donor/my_accepted_ngos')
+def donor_my_accepted_ngos():
+    """
+    Render donor's accepted NGOs page with progress tracking.
+    Shows donations that have been accepted by NGOs, with volunteer and location info.
+    """
+    # Get user info from database session if available
+    db_session_id = session.get('db_session_id')
+    if db_session_id:
+        db_user = get_user_from_session(db_session_id)
+        if db_user:
+            update_session_activity(db_session_id)
+            user_info = db_user
+        else:
+            # Fallback to Flask session
+            user_info = {
+                'user_name': session.get('user_name', 'Food Donor'),
+                'user_email': session.get('user_email', ''),
+                'user_role': session.get('user_role', 'Donor'),
+                'user_registration': session.get('user_registration', ''),
+                'user_verified': session.get('user_verified', False)
+            }
+    else:
+        # Fallback to Flask session
+        user_info = {
+            'user_name': session.get('user_name', 'Food Donor'),
+            'user_email': session.get('user_email', ''),
+            'user_role': session.get('user_role', 'Donor'),
+            'user_registration': session.get('user_registration', ''),
+            'user_verified': session.get('user_verified', False)
+        }
+    
+    conn = get_db_connection()
+    
+    # Get accepted donations with NGO and volunteer info
+    accepted_donations = conn.execute('''
+        SELECT fd.id, fd.organization_name as donor_name, fd.food_type, fd.quantity, 
+               fd.ready_for_pickup_time as pickup_time, fd.pickup_location, 
+               fd.category as food_category, fd.cuisine_type, fd.spice_level, 
+               fd.status, fd.created_at, fd.selected_ngo_id,
+               n.name as ngo_name, n.email as ngo_email, n.address as ngo_address,
+               n.lat as ngo_lat, n.lon as ngo_lon,
+               v.name as volunteer_name, v.contact as volunteer_contact,
+               v.lat as volunteer_lat, v.lon as volunteer_lon
+        FROM food_donors fd
+        LEFT JOIN ngos n ON fd.selected_ngo_id = n.id
+        LEFT JOIN volunteers v ON fd.assigned_volunteer_id = v.id
+        WHERE fd.status = 'accepted' AND fd.selected_ngo_id IS NOT NULL
+        ORDER BY fd.id DESC
+    ''').fetchall()
+    
+    conn.close()
+    
+    accepted_donations_dict = [dict(row) for row in accepted_donations]
+    
+    return render_template('Donor_accepted_ngos.html', 
+                         accepted_donations=accepted_donations_dict,
+                         **user_info)
 
 
 @dashboard_bp.route('/progress')
 def progress():
     """
-    Render progress tracking page with live map for assigned food requests.
+    Render progress tracking page with live map for food requests categorized by status.
     """
     conn = get_db_connection()
 
-    # Get assigned food requests with volunteer and NGO info
-    requests = conn.execute('''
+    # Get food requests categorized by status with volunteer and NGO info
+    assigned_requests = conn.execute('''
         SELECT
             fr.id,
             fr.donor_name,
@@ -102,16 +292,101 @@ def progress():
             n.name as ngo_name,
             n.lat as ngo_lat,
             n.lon as ngo_lon,
-            n.address as ngo_address
+            n.address as ngo_address,
+            fr.created_at
         FROM food_requests fr
         LEFT JOIN volunteers v ON fr.assigned_volunteer_id = v.id
         LEFT JOIN ngos n ON fr.ngo_id = n.id
-        WHERE fr.status IN ('assigned', 'collected', 'in_transit')
+        WHERE fr.status = 'assigned'
+        ORDER BY fr.id DESC
+    ''').fetchall()
+
+    collected_requests = conn.execute('''
+        SELECT
+            fr.id,
+            fr.donor_name,
+            fr.food_type,
+            fr.quantity,
+            fr.pickup_location,
+            fr.pickup_lat,
+            fr.pickup_lon,
+            fr.status,
+            fr.ngo_id,
+            v.name as volunteer_name,
+            v.lat as volunteer_lat,
+            v.lon as volunteer_lon,
+            v.average_rating,
+            v.total_ratings,
+            n.name as ngo_name,
+            n.lat as ngo_lat,
+            n.lon as ngo_lon,
+            n.address as ngo_address,
+            fr.created_at
+        FROM food_requests fr
+        LEFT JOIN volunteers v ON fr.assigned_volunteer_id = v.id
+        LEFT JOIN ngos n ON fr.ngo_id = n.id
+        WHERE fr.status = 'collected'
+        ORDER BY fr.id DESC
+    ''').fetchall()
+
+    in_transit_requests = conn.execute('''
+        SELECT
+            fr.id,
+            fr.donor_name,
+            fr.food_type,
+            fr.quantity,
+            fr.pickup_location,
+            fr.pickup_lat,
+            fr.pickup_lon,
+            fr.status,
+            fr.ngo_id,
+            v.name as volunteer_name,
+            v.lat as volunteer_lat,
+            v.lon as volunteer_lon,
+            v.average_rating,
+            v.total_ratings,
+            n.name as ngo_name,
+            n.lat as ngo_lat,
+            n.lon as ngo_lon,
+            n.address as ngo_address,
+            fr.created_at
+        FROM food_requests fr
+        LEFT JOIN volunteers v ON fr.assigned_volunteer_id = v.id
+        LEFT JOIN ngos n ON fr.ngo_id = n.id
+        WHERE fr.status = 'in_transit'
+        ORDER BY fr.id DESC
+    ''').fetchall()
+
+    delivered_requests = conn.execute('''
+        SELECT
+            fr.id,
+            fr.donor_name,
+            fr.food_type,
+            fr.quantity,
+            fr.pickup_location,
+            fr.pickup_lat,
+            fr.pickup_lon,
+            fr.status,
+            fr.ngo_id,
+            v.name as volunteer_name,
+            v.lat as volunteer_lat,
+            v.lon as volunteer_lon,
+            v.average_rating,
+            v.total_ratings,
+            n.name as ngo_name,
+            n.lat as ngo_lat,
+            n.lon as ngo_lon,
+            n.address as ngo_address,
+            fr.created_at
+        FROM food_requests fr
+        LEFT JOIN volunteers v ON fr.assigned_volunteer_id = v.id
+        LEFT JOIN ngos n ON fr.ngo_id = n.id
+        WHERE fr.status = 'delivered'
         ORDER BY fr.id DESC
     ''').fetchall()
 
     # Get unique NGOs involved in these requests
-    ngo_ids = list(set(req['ngo_id'] for req in requests if req['ngo_id']))
+    ngo_ids = list(set(req['ngo_id'] for req in assigned_requests + collected_requests + in_transit_requests + delivered_requests if req['ngo_id']))
     ngos = []
     if ngo_ids:
         placeholders = ','.join('?' * len(ngo_ids))
@@ -127,7 +402,7 @@ def progress():
         SELECT v.*, COUNT(fr.id) as active_assignments
         FROM volunteers v
         LEFT JOIN food_requests fr ON v.id = fr.assigned_volunteer_id
-        AND fr.status IN ('assigned', 'collected', 'in_transit')
+        AND fr.status IN ('assigned', 'collected', 'in_transit', 'delivered')
         GROUP BY v.id
         ORDER BY v.name
     ''').fetchall()
@@ -135,7 +410,7 @@ def progress():
     # Get all food donors (from food_requests table)
     donors = conn.execute('''
         SELECT DISTINCT donor_name, COUNT(*) as total_donations,
-               COUNT(CASE WHEN status IN ('assigned', 'collected', 'in_transit') THEN 1 END) as active_donations
+               COUNT(CASE WHEN status IN ('assigned', 'collected', 'in_transit', 'delivered') THEN 1 END) as active_donations
         FROM food_requests
         GROUP BY donor_name
         ORDER BY donor_name
@@ -149,19 +424,27 @@ def progress():
     conn.close()
 
     # Convert to list of dicts and add mock ETA
-    requests_list = []
-    for req in requests:
-        req_dict = dict(req)
-        # Mock ETA calculation based on status
-        if req_dict['status'] == 'assigned':
-            req_dict['eta_minutes'] = 15
-        elif req_dict['status'] == 'collected':
-            req_dict['eta_minutes'] = 0
-        elif req_dict['status'] == 'in_transit':
-            req_dict['eta_minutes'] = 8
-        else:
-            req_dict['eta_minutes'] = 0
-        requests_list.append(req_dict)
+    def process_requests(rows):
+        result = []
+        for req in rows:
+            req_dict = dict(req)
+            if req_dict['status'] == 'assigned':
+                req_dict['eta_minutes'] = 15
+            elif req_dict['status'] == 'collected':
+                req_dict['eta_minutes'] = 0
+            elif req_dict['status'] == 'in_transit':
+                req_dict['eta_minutes'] = 8
+            elif req_dict['status'] == 'delivered':
+                req_dict['eta_minutes'] = 0
+            else:
+                req_dict['eta_minutes'] = 0
+            result.append(req_dict)
+        return result
+
+    assigned_requests_list = process_requests(assigned_requests)
+    collected_requests_list = process_requests(collected_requests)
+    in_transit_requests_list = process_requests(in_transit_requests)
+    delivered_requests_list = process_requests(delivered_requests)
 
     # Convert NGO rows to dicts
     ngos_list = [dict(ngo) for ngo in ngos]
@@ -169,6 +452,74 @@ def progress():
     donors_list = [dict(don) for don in donors]
     complaints_list = [dict(comp) for comp in complaints]
 
-    return render_template('progress.html', requests=requests_list, ngos=ngos_list,
-                         volunteers=volunteers_list, donors=donors_list, complaints=complaints_list)
+    # Fetch assignment data for the logged-in user from assignment.db
+    user_email = session.get('user_email')
+    user_assignments = []
+    if user_email:
+        try:
+            from database.get_user_assignments import get_user_assignments
+            user_assignments = get_user_assignments(user_email)
+        except Exception as e:
+            user_assignments = []
+    return render_template('progress.html', 
+                           assigned_requests=assigned_requests_list,
+                           collected_requests=collected_requests_list,
+                           in_transit_requests=in_transit_requests_list,
+                           delivered_requests=delivered_requests_list,
+                           ngos=ngos_list,
+                           volunteers=volunteers_list,
+                           donors=donors_list,
+                           complaints=complaints_list,
+                           user_contact=session.get('user_contact'),
+                           user_assignments=user_assignments)
+
+
+@dashboard_bp.route('/volunteer_dashboard')
+def volunteer_dashboard():
+    """
+    Render volunteer dashboard showing assigned food requests and delivery status.
+    """
+    # Get user info from session
+    user_info = {
+        'user_name': session.get('user_name', 'Volunteer'),
+        'user_email': session.get('user_email', ''),
+        'user_role': session.get('user_role', 'Volunteer'),
+        'user_verified': session.get('user_verified', False)
+    }
+
+    conn = get_db_connection()
+
+    # Get assigned food requests for this volunteer
+    assigned_requests = conn.execute('''
+        SELECT fr.id, fr.donor_name, fr.food_type, fr.quantity, fr.pickup_location,
+               fr.pickup_lat, fr.pickup_lon, fr.pickup_time, fr.status,
+               n.name as ngo_name, n.address as ngo_address, n.lat as ngo_lat, n.lon as ngo_lon
+        FROM food_requests fr
+        LEFT JOIN ngos n ON fr.ngo_id = n.id
+        WHERE fr.assigned_volunteer_id = ? AND fr.status IN ('assigned', 'collected', 'in_transit', 'delivered')
+        ORDER BY fr.id DESC
+    ''', (session.get('user_id'),)).fetchall()
+
+    # Get completed deliveries for this volunteer
+    completed_deliveries = conn.execute('''
+        SELECT fr.id, fr.donor_name, fr.food_type, fr.quantity, fr.pickup_location,
+               fr.pickup_time, fr.status, fr.completed_at,
+               n.name as ngo_name, n.address as ngo_address
+        FROM food_requests fr
+        LEFT JOIN ngos n ON fr.ngo_id = n.id
+        WHERE fr.assigned_volunteer_id = ? AND fr.status = 'delivered'
+        ORDER BY fr.completed_at DESC
+        LIMIT 10
+    ''', (session.get('user_id'),)).fetchall()
+
+    conn.close()
+
+    # Convert to dicts
+    assigned_requests_dict = [dict(row) for row in assigned_requests]
+    completed_deliveries_dict = [dict(row) for row in completed_deliveries]
+
+    return render_template('volunteer_dashboard.html',
+                         assigned_requests=assigned_requests_dict,
+                         completed_deliveries=completed_deliveries_dict,
+                         **user_info)
 

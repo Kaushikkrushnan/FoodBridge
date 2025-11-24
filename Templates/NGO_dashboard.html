@@ -68,6 +68,11 @@
             background-color: #d1fae5; /* bg-green-100 */
             color: #065f46; /* text-green-800 */
         }
+
+        .status-available {
+            background-color: #fef3c7; /* bg-yellow-100 */
+            color: #92400e; /* text-yellow-800 */
+        }
         
         .food-icons {
             display: flex;
@@ -79,6 +84,25 @@
     </style>
 </head>
 <body class="bg-sky-100 text-gray-900">
+        {% if user_name %}
+        <div class="max-w-xl mx-auto mt-8 mb-6">
+            <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col gap-2 border border-sky-200">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-3">
+                        <span class="inline-block bg-sky-600 text-white rounded-full px-3 py-1 text-sm font-semibold">NGO</span>
+                        <span class="font-bold text-lg text-gray-800">{{ user_name }}</span>
+                    </div>
+                    <form method="post" action="{{ url_for('auth.logout') }}">
+                        <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold shadow transition">Logout</button>
+                    </form>
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div><span class="font-semibold text-gray-600">Email:</span> <span class="text-gray-800">{{ user_email }}</span></div>
+                    <div><span class="font-semibold text-gray-600">Session ID:</span> <span class="text-gray-800">{{ db_session_id }}</span></div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
     <div class="container max-w-7xl mx-auto p-4 md:p-8">
         
@@ -91,6 +115,7 @@
         <!-- Navigation -->
         <nav class="flex justify-center gap-4 mb-8">
             <a href="{{ url_for('index') }}" class="btn bg-sky-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-sky-700 transition duration-300">Home</a>
+            <a href="{{ url_for('dashboard.ngo_my_accepted_donations') }}" class="btn bg-purple-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-purple-700 transition duration-300">My Accepted Donations</a>
             <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">Live Progress Tracking</a>
         </nav>
 
@@ -120,95 +145,95 @@
             </select>
         </div>
 
-        <!-- Active Food Requests Section -->
+        <!-- Available Food Donations Section -->
         <div class="mb-12">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">Active Food Requests</h2>
-            <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="active-requests-grid">
-                {% if food_requests %}
-                    {% for request in food_requests %}
-                    <div class="request-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
-                         data-id="{{ request.id }}"
-                         data-cuisine="{{ request.cuisine_type or '' }}"
-                         data-spice="{{ request.spice_level or '' }}"
-                         data-spec="{{ request.food_category or '' }}"
-                         data-search="{{ request.donor_name|lower }} {{ request.food_type|lower }}">
-                        <h3 class="text-2xl font-semibold mb-2">{{ request.donor_name or 'Anonymous' }}</h3>
-                        <p><strong>Food Type:</strong> {{ request.food_type or 'N/A' }}</p>
-                        <p><strong>Quantity:</strong> {{ request.quantity or 'N/A' }}</p>
-                        <p><strong>Pickup Location:</strong> {{ request.pickup_location or 'N/A' }}</p>
-                        <p><strong>Pickup Time:</strong> {{ request.pickup_time or 'N/A' }}</p>
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Available Food Donations</h2>
+            <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="available-donations-grid">
+                {% if available_donations %}
+                    {% for donation in available_donations %}
+                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
+                         data-id="{{ donation.id }}"
+                         data-cuisine="{{ donation.cuisine_type or '' }}"
+                         data-spice="{{ donation.spice_level or '' }}"
+                         data-spec="{{ donation.food_category or '' }}"
+                         data-search="{{ donation.donor_name|lower }} {{ donation.food_type|lower }}">
+                        <h3 class="text-2xl font-semibold mb-2">{{ donation.donor_name or 'Anonymous' }}</h3>
+                        <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
+                        <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
+                        <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
+                        <p><strong>Pickup Time:</strong> {{ donation.pickup_time or 'N/A' }}</p>
 
                         <div class="food-icons">
-                            {% if request.food_category == 'vegetarian' %}<span title="Vegetarian">🥦</span>{% endif %}
-                            {% if request.food_category == 'non_vegetarian' %}<span title="Non-Vegetarian">🍗</span>{% endif %}
-                            {% if request.food_category == 'low_sugar' %}<span title="Low Sugar">🍰</span>{% endif %}
-                            {% if request.spice_level == 'mild' %}<span title="Mild">🧊</span>{% endif %}
-                            {% if request.spice_level == 'medium' %}<span title="Medium">🔥</span>{% endif %}
-                            {% if request.spice_level == 'spicy' %}<span title="Spicy">🌶️</span>{% endif %}
-                            {% if request.cuisine_type == 'south_indian' %}<span title="South Indian">🍛</span>{% endif %}
-                            {% if request.cuisine_type == 'north_indian' %}<span title="North Indian">🥘</span>{% endif %}
-                            {% if request.cuisine_type == 'chinese' %}<span title="Chinese">🍜</span>{% endif %}
-                            {% if request.cuisine_type == 'italian' %}<span title="Italian">🍝</span>{% endif %}
-                            {% if request.cuisine_type == 'western' %}<span title="Western">🍔</span>{% endif %}
+                            {% if donation.food_category == 'vegetarian' %}<span title="Vegetarian">🥦</span>{% endif %}
+                            {% if donation.food_category == 'non_vegetarian' %}<span title="Non-Vegetarian">🍗</span>{% endif %}
+                            {% if donation.food_category == 'low_sugar' %}<span title="Low Sugar">🍰</span>{% endif %}
+                            {% if donation.spice_level == 'mild' %}<span title="Mild">🧊</span>{% endif %}
+                            {% if donation.spice_level == 'medium' %}<span title="Medium">🔥</span>{% endif %}
+                            {% if donation.spice_level == 'spicy' %}<span title="Spicy">🌶️</span>{% endif %}
+                            {% if donation.cuisine_type == 'south_indian' %}<span title="South Indian">🍛</span>{% endif %}
+                            {% if donation.cuisine_type == 'north_indian' %}<span title="North Indian">🥘</span>{% endif %}
+                            {% if donation.cuisine_type == 'chinese' %}<span title="Chinese">🍜</span>{% endif %}
+                            {% if donation.cuisine_type == 'italian' %}<span title="Italian">🍝</span>{% endif %}
+                            {% if donation.cuisine_type == 'western' %}<span title="Western">🍔</span>{% endif %}
                         </div>
 
-                        <span class="status-badge status-active">Active</span>
+                        <span class="status-badge status-available">Available</span>
                         <div class="mt-4">
-                            <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="openRequestModal({{ request.id }})">Review & Accept</button>
+                            <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="openRequestModal({{ donation.id }})">Review & Accept</button>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
                     <div class="col-span-full text-center py-12">
-                        <p class="text-gray-500 text-lg">No active food requests available.</p>
+                        <p class="text-gray-500 text-lg">No available food donations.</p>
                     </div>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Assigned Food Requests Section -->
+        <!-- Accepted Food Donations Section -->
         <div class="mb-12">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">Assigned Food Requests</h2>
-            <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="assigned-requests-grid">
-                {% if assigned_requests %}
-                    {% for request in assigned_requests %}
-                    <div class="request-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
-                         data-id="{{ request.id }}"
-                         data-cuisine="{{ request.cuisine_type or '' }}"
-                         data-spice="{{ request.spice_level or '' }}"
-                         data-spec="{{ request.food_category or '' }}"
-                         data-search="{{ request.donor_name|lower }} {{ request.food_type|lower }}">
-                        <h3 class="text-2xl font-semibold mb-2">{{ request.donor_name or 'Anonymous' }}</h3>
-                        <p><strong>Food Type:</strong> {{ request.food_type or 'N/A' }}</p>
-                        <p><strong>Quantity:</strong> {{ request.quantity or 'N/A' }}</p>
-                        <p><strong>Pickup Location:</strong> {{ request.pickup_location or 'N/A' }}</p>
-                        <p><strong>Pickup Time:</strong> {{ request.pickup_time or 'N/A' }}</p>
-                        <p><strong>Assigned Volunteer:</strong> {{ request.volunteer_name or 'N/A' }}</p>
-                        <p><strong>Status:</strong> {{ request.status.title() }}</p>
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Accepted Food Donations</h2>
+            <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="accepted-donations-grid">
+                {% if accepted_donations %}
+                    {% for donation in accepted_donations %}
+                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
+                         data-id="{{ donation.id }}"
+                         data-cuisine="{{ donation.cuisine_type or '' }}"
+                         data-spice="{{ donation.spice_level or '' }}"
+                         data-spec="{{ donation.food_category or '' }}"
+                         data-search="{{ donation.donor_name|lower }} {{ donation.food_type|lower }}">
+                        <h3 class="text-2xl font-semibold mb-2">{{ donation.donor_name or 'Anonymous' }}</h3>
+                        <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
+                        <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
+                        <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
+                        <p><strong>Pickup Time:</strong> {{ donation.pickup_time or 'N/A' }}</p>
+                        <p><strong>Assigned Volunteer:</strong> {{ donation.volunteer_name or 'N/A' }}</p>
+                        <p><strong>Status:</strong> {{ donation.status.title() }}</p>
 
                         <div class="food-icons">
-                            {% if request.food_category == 'vegetarian' %}<span title="Vegetarian">🥦</span>{% endif %}
-                            {% if request.food_category == 'non_vegetarian' %}<span title="Non-Vegetarian">🍗</span>{% endif %}
-                            {% if request.food_category == 'low_sugar' %}<span title="Low Sugar">🍰</span>{% endif %}
-                            {% if request.spice_level == 'mild' %}<span title="Mild">🧊</span>{% endif %}
-                            {% if request.spice_level == 'medium' %}<span title="Medium">🔥</span>{% endif %}
-                            {% if request.spice_level == 'spicy' %}<span title="Spicy">🌶️</span>{% endif %}
-                            {% if request.cuisine_type == 'south_indian' %}<span title="South Indian">🍛</span>{% endif %}
-                            {% if request.cuisine_type == 'north_indian' %}<span title="North Indian">🥘</span>{% endif %}
-                            {% if request.cuisine_type == 'chinese' %}<span title="Chinese">🍜</span>{% endif %}
-                            {% if request.cuisine_type == 'italian' %}<span title="Italian">🍝</span>{% endif %}
-                            {% if request.cuisine_type == 'western' %}<span title="Western">🍔</span>{% endif %}
+                            {% if donation.food_category == 'vegetarian' %}<span title="Vegetarian">🥦</span>{% endif %}
+                            {% if donation.food_category == 'non_vegetarian' %}<span title="Non-Vegetarian">🍗</span>{% endif %}
+                            {% if donation.food_category == 'low_sugar' %}<span title="Low Sugar">🍰</span>{% endif %}
+                            {% if donation.spice_level == 'mild' %}<span title="Mild">🧊</span>{% endif %}
+                            {% if donation.spice_level == 'medium' %}<span title="Medium">🔥</span>{% endif %}
+                            {% if donation.spice_level == 'spicy' %}<span title="Spicy">🌶️</span>{% endif %}
+                            {% if donation.cuisine_type == 'south_indian' %}<span title="South Indian">🍛</span>{% endif %}
+                            {% if donation.cuisine_type == 'north_indian' %}<span title="North Indian">🥘</span>{% endif %}
+                            {% if donation.cuisine_type == 'chinese' %}<span title="Chinese">🍜</span>{% endif %}
+                            {% if donation.cuisine_type == 'italian' %}<span title="Italian">🍝</span>{% endif %}
+                            {% if donation.cuisine_type == 'western' %}<span title="Western">🍔</span>{% endif %}
                         </div>
 
-                        <span class="status-badge status-active">{{ request.status.title() }}</span>
+                        <span class="status-badge status-active">Accepted</span>
                         <div class="mt-4">
-                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewAssignedRequest({{ request.id }})">View Details</button>
+                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewAcceptedDonation({{ donation.id }})">View Details</button>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
                     <div class="col-span-full text-center py-12">
-                        <p class="text-gray-500 text-lg">No assigned food requests.</p>
+                        <p class="text-gray-500 text-lg">No accepted food donations.</p>
                     </div>
                 {% endif %}
             </div>
@@ -216,7 +241,7 @@
         
         <!-- "No results" message (hidden by default) -->
         <div id="no-results" class="card bg-white p-6 rounded-lg shadow-md text-center text-gray-500" style="display: none;">
-            <p>No active food requests match your filters.</p>
+            <p>No food donations match your filters.</p>
         </div>
 
     </div>
@@ -232,79 +257,39 @@
     </div>
 
     <script>
-        // Mock data that replaces the server-side `{{ food_requests | tojson }}`
-        var foodRequests = [
-            {
-                "id": 1,
-                "donor_name": "Good Samaritan Foods",
-                "food_type": "Chicken Biryani",
-                "quantity": "50 servings",
-                "pickup_location": "123 Main St, Downtown",
-                "pickup_time": "2025-11-14T14:00",
-                "food_category": "non_vegetarian",
-                "cuisine_type": "north_indian",
-                "spice_level": "spicy",
-                "pickup_lat": 12.9716,
-                "pickup_lon": 77.5946
-            },
-            {
-                "id": 2,
-                "donor_name": "City Bakery",
-                "food_type": "Assorted Sandwiches",
-                "quantity": "100 items",
-                "pickup_location": "456 Oak Ave, Suburb",
-                "pickup_time": "2025-11-14T12:00",
-                "food_category": "vegetarian",
-                "cuisine_type": "western",
-                "spice_level": "mild",
-                "pickup_lat": 12.9216,
-                "pickup_lon": 77.5346
-            },
-            {
-                "id": 3,
-                "donor_name": "Anonymous",
-                "food_type": "Vegetable Pasta",
-                "quantity": "30 servings",
-                "pickup_location": "789 Pine Rd, Uptown",
-                "pickup_time": "2025-11-14T13:00",
-                "food_category": "low_sugar", // Also vegetarian, but we'll use food_category for the main spec
-                "cuisine_type": "italian",
-                "spice_level": "medium",
-                "pickup_lat": 12.9916,
-                "pickup_lon": 77.6146
-            }
-        ];
+        // Real data from template
+        var availableDonations = {{ available_donations|tojson }};
+        var acceptedDonations = {{ accepted_donations|tojson }};
         
         function filterRequests() {
             const searchTerm = document.getElementById('search-input').value.toLowerCase();
             const cuisineFilter = document.getElementById('cuisine-filter').value;
             const spiceFilter = document.getElementById('spice-filter').value;
-            const specFilter = document.getElementById('spec-filter').value; // New filter
+            const specFilter = document.getElementById('spec-filter').value;
             const noResultsMessage = document.getElementById('no-results');
-            
-            const cards = document.querySelectorAll('.request-card');
+
+            const cards = document.querySelectorAll('.donation-card');
             let visibleCount = 0;
 
             cards.forEach(card => {
                 const searchText = card.getAttribute('data-search').toLowerCase();
                 const cuisine = card.getAttribute('data-cuisine');
                 const spice = card.getAttribute('data-spice');
-                const spec = card.getAttribute('data-spec'); // New data attribute
-                
+                const spec = card.getAttribute('data-spec');
+
                 const matchesSearch = !searchTerm || searchText.includes(searchTerm);
                 const matchesCuisine = !cuisineFilter || cuisine === cuisineFilter;
                 const matchesSpice = !spiceFilter || spice === spiceFilter;
-                const matchesSpec = !specFilter || spec === specFilter; // New match condition
-                
-                if (matchesSearch && matchesCuisine && matchesSpice && matchesSpec) { // Added matchesSpec
+                const matchesSpec = !specFilter || spec === specFilter;
+
+                if (matchesSearch && matchesCuisine && matchesSpice && matchesSpec) {
                     card.style.display = 'block';
                     visibleCount++;
                 } else {
                     card.style.display = 'none';
                 }
             });
-            
-            // Show or hide the "no results" message
+
             if (visibleCount === 0) {
                 noResultsMessage.style.display = 'block';
             } else {
@@ -313,7 +298,7 @@
         }
         
         function openRequestModal(requestId) {
-            const request = foodRequests.find(r => r.id === requestId);
+            const request = availableDonations.find(r => r.id === requestId);
             if (!request) {
                 console.error('Request not found');
                 return;
@@ -356,8 +341,8 @@
                 <div class="food-icons" style="margin: 1rem 0;">${icons || '<span>No special tags</span>'}</div>
                 <hr class="my-6">
                 <div id="assign-action-area">
-                    <button id="assign-btn" class="btn w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition text-lg font-semibold" onclick="assignVolunteer(${request.id}, ${pickupLat}, ${pickupLon}, '${pickupTime}')">
-                        Accept & Assign Volunteer
+                    <button id="assign-btn" class="btn w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition text-lg font-semibold" onclick="acceptDonation(${request.id})">
+                        Review & Accept
                     </button>
                     <div id="assign-message" class="mt-4 text-center"></div>
                 </div>
@@ -370,19 +355,13 @@
             document.getElementById('request-modal').style.display = 'none';
         }
         
-        // Assigns volunteer via API call
-        function assignVolunteer(requestId, lat, lon, time) {
-            if (!lat || !lon || lat === 0 || lon === 0) {
-                const messageDiv = document.getElementById('assign-message');
-                messageDiv.innerHTML = `<span class="text-red-600 font-semibold">Error: Invalid pickup location. Cannot assign.</span>`;
-                return;
-            }
-
+        // Accepts donation and assigns volunteer via API call
+        function acceptDonation(requestId) {
             const assignButton = document.getElementById('assign-btn');
             const messageDiv = document.getElementById('assign-message');
 
             assignButton.disabled = true;
-            assignButton.textContent = 'Assigning...';
+            assignButton.textContent = 'Accepting...';
             messageDiv.innerHTML = `<span class="text-sky-600">Finding nearest volunteer...</span>`;
 
             // Make API call to accept the request
@@ -396,8 +375,20 @@
                     request_id: requestId
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    // Try to get error message from response
+                    return response.json().then(errData => {
+                        throw new Error(errData.message || `HTTP error! status: ${response.status}`);
+                    }).catch(() => {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Response data:', data);
                 if (data.success) {
                     messageDiv.innerHTML = `
                         <span class="text-green-700 font-semibold">
@@ -406,52 +397,194 @@
                     `;
                     assignButton.textContent = 'Accepted';
 
-                    // Move card from Active to Assigned section on the fly
-                    const activeGrid = document.getElementById('active-requests-grid');
-                    const assignedGrid = document.getElementById('assigned-requests-grid');
-                    const card = activeGrid.querySelector('.request-card[data-id="' + requestId + '"]');
+                    // Move card from Available to Accepted section on the fly
+                    const availableGrid = document.getElementById('available-donations-grid');
+                    const acceptedGrid = document.getElementById('accepted-donations-grid');
+                    
+                    if (!availableGrid || !acceptedGrid) {
+                        console.error('Grids not found:', { availableGrid, acceptedGrid });
+                        // Reload page to show updated state
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                        return;
+                    }
+                    
+                    // Find the card by data-id attribute (try both string and number)
+                    let card = availableGrid.querySelector('.donation-card[data-id="' + requestId + '"]');
+                    if (!card) {
+                        card = availableGrid.querySelector('.donation-card[data-id="' + parseInt(requestId) + '"]');
+                    }
+                    // If still not found, try finding by iterating through all cards
+                    if (!card) {
+                        const allCards = availableGrid.querySelectorAll('.donation-card');
+                        for (let c of allCards) {
+                            if (c.getAttribute('data-id') == requestId || c.getAttribute('data-id') == parseInt(requestId)) {
+                                card = c;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    console.log('Card found:', card);
+                    console.log('Request ID:', requestId, typeof requestId);
+                    console.log('Accepted grid:', acceptedGrid);
+                    console.log('Available grid children:', availableGrid.children.length);
 
-                    if (card && assignedGrid) {
+                    if (card && acceptedGrid) {
+                        // Remove "No accepted food donations" message if it exists
+                        const noAcceptedMessage = acceptedGrid.querySelector('.col-span-full');
+                        if (noAcceptedMessage) {
+                            noAcceptedMessage.remove();
+                        }
+
                         const clone = card.cloneNode(true);
 
-                        // Update assigned card content with volunteer name and status if provided
+                        // Update status badge to "Accepted"
                         const statusBadge = clone.querySelector('.status-badge');
                         if (statusBadge) {
-                            statusBadge.textContent = (data.status || 'assigned').toString().toUpperCase();
+                            statusBadge.classList.remove('status-available');
+                            statusBadge.classList.add('status-active');
+                            statusBadge.textContent = 'Accepted';
                         }
-                        const volunteerLine = clone.querySelector('p:nth-of-type(6)');
-                        if (volunteerLine && data.volunteer_name) {
+
+                        // Find where to insert volunteer name (after pickup_time, before food-icons)
+                        const pickupTimeElement = Array.from(clone.querySelectorAll('p')).find(p => p.textContent.includes('Pickup Time'));
+                        const foodIconsElement = clone.querySelector('.food-icons');
+                        
+                        // Add volunteer name if provided
+                        if (data.volunteer_name) {
+                            const volunteerLine = document.createElement('p');
                             volunteerLine.innerHTML = '<strong>Assigned Volunteer:</strong> ' + data.volunteer_name;
+                            
+                            if (foodIconsElement && pickupTimeElement) {
+                                foodIconsElement.parentNode.insertBefore(volunteerLine, foodIconsElement);
+                            } else if (foodIconsElement) {
+                                foodIconsElement.parentNode.insertBefore(volunteerLine, foodIconsElement);
+                            } else {
+                                clone.appendChild(volunteerLine);
+                            }
+                        }
+
+                        // Add status line
+                        const statusLine = document.createElement('p');
+                        statusLine.innerHTML = '<strong>Status:</strong> Accepted';
+                        if (foodIconsElement) {
+                            foodIconsElement.parentNode.insertBefore(statusLine, foodIconsElement);
+                        } else {
+                            clone.appendChild(statusLine);
                         }
 
                         // Change button to "View Details"
                         const btn = clone.querySelector('button');
                         if (btn) {
                             btn.textContent = 'View Details';
-                            btn.classList.remove('bg-sky-600');
+                            btn.classList.remove('bg-sky-600', 'hover:bg-sky-700');
                             btn.classList.add('bg-green-600', 'hover:bg-green-700');
-                            btn.setAttribute('onclick', 'viewAssignedRequest(' + requestId + ')');
+                            btn.setAttribute('onclick', 'viewAcceptedDonation(' + requestId + ')');
                         }
 
-                        assignedGrid.prepend(clone);
+                        // Insert the cloned card at the beginning of accepted grid
+                        if (acceptedGrid.firstChild) {
+                            acceptedGrid.insertBefore(clone, acceptedGrid.firstChild);
+                        } else {
+                            acceptedGrid.appendChild(clone);
+                        }
+                        
+                        // Remove the original card from available grid
                         card.remove();
+                        
+                        // Update the acceptedDonations array
+                        const acceptedDonation = availableDonations.find(d => d.id === requestId);
+                        if (acceptedDonation) {
+                            acceptedDonation.status = 'accepted';
+                            acceptedDonation.volunteer_name = data.volunteer_name;
+                            acceptedDonations.push(acceptedDonation);
+                            availableDonations = availableDonations.filter(d => d.id !== requestId);
+                        }
+                        
+                        // If no more available donations, show message
+                        const remainingCards = availableGrid.querySelectorAll('.donation-card');
+                        if (remainingCards.length === 0) {
+                            const noAvailableMsg = document.createElement('div');
+                            noAvailableMsg.className = 'col-span-full text-center py-12';
+                            noAvailableMsg.innerHTML = '<p class="text-gray-500 text-lg">No available food donations.</p>';
+                            availableGrid.appendChild(noAvailableMsg);
+                        }
+                    } else {
+                        console.error('Card or accepted grid not found. Card:', card, 'Accepted Grid:', acceptedGrid);
+                        // Reload page to show updated state
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
                     }
 
                     setTimeout(() => {
                         closeRequestModal();
+                        // Reload page after 1 second to ensure UI is in sync with database
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
                     }, 1500);
                 } else {
                     messageDiv.innerHTML = `<span class="text-red-600 font-semibold">Error: ${data.message}</span>`;
                     assignButton.disabled = false;
-                    assignButton.textContent = 'Accept & Assign Volunteer';
+                    assignButton.textContent = 'Review & Accept';
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                messageDiv.innerHTML = `<span class="text-red-600 font-semibold">Error: Network error occurred.</span>`;
+                const errorMessage = error.message || 'Network error occurred. Please check if the server is running.';
+                messageDiv.innerHTML = `<span class="text-red-600 font-semibold">Error: ${errorMessage}</span>`;
                 assignButton.disabled = false;
-                assignButton.textContent = 'Accept & Assign Volunteer';
+                assignButton.textContent = 'Review & Accept';
             });
+        }
+
+        // View details for accepted donations
+        function viewAcceptedDonation(donationId) {
+            const donation = acceptedDonations.find(d => d.id === donationId);
+            if (!donation) {
+                console.error('Donation not found');
+                return;
+            }
+
+            const modalBody = document.getElementById('request-modal-body');
+            let icons = '';
+            if (donation.food_category === 'vegetarian') icons += '<span title="Vegetarian">🥦</span> ';
+            if (donation.food_category === 'low_sugar') icons += '<span title="Low Sugar">🍰</span> ';
+            if (donation.food_category === 'non_vegetarian') icons += '<span title="Non-Vegetarian">🍗</span> ';
+            if (donation.spice_level === 'spicy') icons += '<span title="Spicy">🌶️</span> ';
+            if (donation.spice_level === 'medium') icons += '<span title="Medium">🔥</span> ';
+            if (donation.spice_level === 'mild') icons += '<span title="Mild">🧊</span> ';
+            if (donation.cuisine_type === 'south_indian') icons += '<span title="South Indian">🍛</span> ';
+            if (donation.cuisine_type === 'north_indian') icons += '<span title="North Indian">🥘</span> ';
+            if (donation.cuisine_type === 'chinese') icons += '<span title="Chinese">🍜</span> ';
+            if (donation.cuisine_type === 'italian') icons += '<span title="Italian">🍝</span> ';
+            if (donation.cuisine_type === 'western') icons += '<span title="Western">🍔</span> ';
+
+            const escapeHtml = (text) => {
+                if (!text) return 'N/A';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            };
+
+            modalBody.innerHTML = `
+                <h2 class="text-3xl font-bold mb-4">Accepted Donation Details</h2>
+                <p class="text-lg mb-2"><strong>Donor:</strong> ${escapeHtml(donation.donor_name || 'Anonymous')}</p>
+                <p class="text-lg mb-2"><strong>Food Type:</strong> ${escapeHtml(donation.food_type || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Quantity:</strong> ${escapeHtml(donation.quantity || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Pickup Location:</strong> ${escapeHtml(donation.pickup_location || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Pickup Time:</strong> ${escapeHtml(donation.pickup_time || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Assigned Volunteer:</strong> ${escapeHtml(donation.volunteer_name || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Status:</strong> Accepted</p>
+                <div class="food-icons" style="margin: 1rem 0;">${icons || '<span>No special tags</span>'}</div>
+                <hr class="my-6">
+                <p class="text-center text-green-600 font-semibold">This donation has been accepted and assigned to a volunteer!</p>
+            `;
+
+            document.getElementById('request-modal').style.display = 'block';
         }
         
         // Close modal when clicking outside

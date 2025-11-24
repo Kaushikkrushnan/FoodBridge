@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en"><head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Progress Tracking - Surplus-to-NGO</title>
@@ -65,6 +64,27 @@
     </style>
 </head>
 <body class="bg-gray-50">
+            <div style="position: absolute; top: 10px; right: 20px; z-index: 1000; min-width: 320px;">
+                {% if user_contact %}
+                    <div class="food-donor-login-key bg-indigo-600 text-white px-4 py-2 rounded shadow-lg mb-2">
+                        Logged in as: <b>{{ user_contact }}</b>
+                    </div>
+                {% endif %}
+                {% if user_assignments and user_assignments|length > 0 %}
+                    <div class="bg-white border border-indigo-200 rounded shadow p-3">
+                        <h4 class="font-semibold text-indigo-700 mb-2">Your Assignments</h4>
+                        <ul class="text-sm text-gray-800 space-y-1">
+                        {% for assignment in user_assignments %}
+                            <li>
+                                <b>NGO:</b> {{ assignment.ngo_name }}<br>
+                                <b>Volunteer:</b> {{ assignment.volunteer_name }}<br>
+                                <b>Food Donor:</b> {{ assignment.food_donor_name }}<br>
+                                <b>Assigned At:</b> {{ assignment.assigned_at }}
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
     <div class="container mx-auto px-4 py-8">
         <!-- Header -->
         <div class="text-center mb-8">
@@ -83,10 +103,10 @@
         <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
             <h2 class="text-2xl font-semibold mb-4">Transport Volunteers</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {% for request in requests %}
-                <div class="volunteer-card {% if request.status == 'in_transit' %}active{% endif %}">
+                {% for request in assigned_requests %}
+                <div class="volunteer-card {% if request.status == 'assigned' %}active{% endif %}">
                     <div class="flex justify-between items-start mb-2">
-                        <h4 class="font-semibold text-gray-800">{{ request.volunteer_name }}</h4>
+                        <h4 class="font-semibold text-gray-800">{{ request.volunteer_name or 'Unassigned' }}</h4>
                         <span class="status-badge status-{{ request.status }}">
                             {{ request.status.replace('_', ' ').title() }}
                         </span>
@@ -96,12 +116,91 @@
                     <p class="text-sm text-gray-600 mb-1"><strong>Current Task:</strong> {{ request.donor_name }} → NGO</p>
                     {% if request.status == 'assigned' %}
                     <p class="text-sm text-blue-600"><strong>ETA to Pickup:</strong> {{ request.eta_minutes }} min</p>
-                    {% elif request.status == 'in_transit' %}
-                    <p class="text-sm text-green-600"><strong>ETA to NGO:</strong> {{ request.eta_minutes }} min</p>
                     {% endif %}
                 </div>
                 {% endfor %}
             </div>
+        </div>
+
+        <!-- Progress Status Sections -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Ready to be collected -->
+            <section class="bg-white rounded-lg shadow-lg p-4">
+                <h3 class="text-xl font-semibold mb-4">Ready to be Collected (Assigned)</h3>
+                {% if assigned_requests %}
+                    <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                    {% for req in assigned_requests %}
+                        <li class="py-2">
+                            <p><strong>Donor:</strong> {{ req.donor_name }}</p>
+                            <p><strong>Food:</strong> {{ req.food_type }} - {{ req.quantity }}</p>
+                            <p><strong>Pickup Location:</strong> {{ req.pickup_location }}</p>
+                            <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'Not assigned' }}</p>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-gray-600">No requests currently ready for collection.</p>
+                {% endif %}
+            </section>
+
+            <!-- Collected by Volunteer -->
+            <section class="bg-white rounded-lg shadow-lg p-4">
+                <h3 class="text-xl font-semibold mb-4">Collected by Volunteer</h3>
+                {% if collected_requests %}
+                    <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                    {% for req in collected_requests %}
+                        <li class="py-2">
+                            <p><strong>Donor:</strong> {{ req.donor_name }}</p>
+                            <p><strong>Food:</strong> {{ req.food_type }} - {{ req.quantity }}</p>
+                            <p><strong>Pickup Location:</strong> {{ req.pickup_location }}</p>
+                            <p><strong>Volunteer:</strong> {{ req.volunteer_name }}</p>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-gray-600">No collected requests currently.</p>
+                {% endif %}
+            </section>
+
+            <!-- In Transit to NGO -->
+            <section class="bg-white rounded-lg shadow-lg p-4">
+                <h3 class="text-xl font-semibold mb-4">In Transit to NGO</h3>
+                {% if in_transit_requests %}
+                    <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                    {% for req in in_transit_requests %}
+                        <li class="py-2">
+                            <p><strong>Donor:</strong> {{ req.donor_name }}</p>
+                            <p><strong>Food:</strong> {{ req.food_type }} - {{ req.quantity }}</p>
+                            <p><strong>Pickup Location:</strong> {{ req.pickup_location }}</p>
+                            <p><strong>Volunteer:</strong> {{ req.volunteer_name }}</p>
+                            <p><strong>NGO:</strong> {{ req.ngo_name or 'Not assigned' }}</p>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-gray-600">No items currently in transit.</p>
+                {% endif %}
+            </section>
+
+            <!-- Delivered to NGO -->
+            <section class="bg-white rounded-lg shadow-lg p-4">
+                <h3 class="text-xl font-semibold mb-4">Delivered to NGO</h3>
+                {% if delivered_requests %}
+                    <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                    {% for req in delivered_requests %}
+                        <li class="py-2">
+                            <p><strong>Donor:</strong> {{ req.donor_name }}</p>
+                            <p><strong>Food:</strong> {{ req.food_type }} - {{ req.quantity }}</p>
+                            <p><strong>Pickup Location:</strong> {{ req.pickup_location }}</p>
+                            <p><strong>Volunteer:</strong> {{ req.volunteer_name }}</p>
+                            <p><strong>NGO:</strong> {{ req.ngo_name or 'Not assigned' }}</p>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-gray-600">No deliveries completed yet.</p>
+                {% endif %}
+            </section>
         </div>
 
         <!-- Main Content Grid -->
@@ -184,6 +283,15 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Prepare data lists combined from all four request categories
+        const assignedRequests = JSON.parse('{{ assigned_requests|tojson|safe }}');
+        const collectedRequests = JSON.parse('{{ collected_requests|tojson|safe }}');
+        const inTransitRequests = JSON.parse('{{ in_transit_requests|tojson|safe }}');
+        const deliveredRequests = JSON.parse('{{ delivered_requests|tojson|safe }}');
+
+        // Combine all requests into one array for mapping
+        const allRequests = [...assignedRequests, ...collectedRequests, ...inTransitRequests, ...deliveredRequests];
+
         // Initialize map centered on Chennai
         const map = L.map('map').setView([13.0827, 80.2707], 12);
 
@@ -191,9 +299,6 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
-
-        // Mock data - in production, this would come from the server
-        const requests = {{ requests|tojson }};
 
         // Icons for different statuses
         const icons = {
@@ -231,9 +336,9 @@
             })
         };
 
-        // Add markers for each request - 3 pointers: Donor, Volunteer, NGO
-        requests.forEach(request => {
-            // 1. Donor location marker (pickup point)
+        // Add markers for each request - Donor, Volunteer, NGO
+        allRequests.forEach(request => {
+            // Donor pickup marker
             if (request.pickup_lat && request.pickup_lon) {
                 const donorMarker = L.marker([request.pickup_lat, request.pickup_lon], {
                     icon: icons[request.status] || icons.assigned
@@ -256,12 +361,12 @@
                 donorMarker.bindPopup(donorPopup);
             }
 
-            // 2. Volunteer location marker (current position)
+            // Volunteer marker
             if (request.volunteer_lat && request.volunteer_lon) {
                 let volLat = request.volunteer_lat;
                 let volLon = request.volunteer_lon;
 
-                // Simulate movement for in_transit status
+                // Simulate slight movement for in_transit status
                 if (request.status === 'in_transit') {
                     volLat += (Math.random() - 0.5) * 0.001;
                     volLon += (Math.random() - 0.5) * 0.001;
@@ -288,7 +393,7 @@
                 `);
             }
 
-            // 3. NGO location marker (delivery destination)
+            // NGO destination marker
             if (request.ngo_lat && request.ngo_lon) {
                 const ngoMarker = L.marker([request.ngo_lat, request.ngo_lon], {
                     icon: L.icon({
@@ -312,23 +417,21 @@
             }
         });
 
-        // Function to update volunteer locations (moving markers)
+        // Function to update volunteer locations periodically
         let volunteerMarkers = [];
 
         function updateVolunteerLocations() {
-            // Remove existing volunteer markers
+            // Remove old volunteer markers
             volunteerMarkers.forEach(marker => map.removeLayer(marker));
             volunteerMarkers = [];
 
-            // Add new volunteer markers with slight random movement
-            requests.forEach(request => {
+            // Add new volunteer markers with slight movement
+            allRequests.forEach(request => {
                 if (request.volunteer_lat && request.volunteer_lon) {
-                    // Simulate movement for in_transit status
                     let lat = request.volunteer_lat;
                     let lon = request.volunteer_lon;
 
                     if (request.status === 'in_transit') {
-                        // Add small random movement
                         lat += (Math.random() - 0.5) * 0.001;
                         lon += (Math.random() - 0.5) * 0.001;
                     }
@@ -358,15 +461,18 @@
             });
         }
 
-        // Initial volunteer location update
+        // Initial volunteer marker update
         updateVolunteerLocations();
 
-        // Update every 30 seconds
+        // Update volunteer locations every 30 seconds
         setInterval(updateVolunteerLocations, 30000);
 
-        // Fit map to show all markers
-        const group = new L.featureGroup(requests.map(r => L.marker([r.pickup_lat, r.pickup_lon])));
-        map.fitBounds(group.getBounds().pad(0.1));
+        // Fit map bounds to show all donor pickup points
+        const donorMarkers = allRequests.map(r => L.marker([r.pickup_lat, r.pickup_lon]));
+        if(donorMarkers.length > 0){
+            const group = new L.featureGroup(donorMarkers);
+            map.fitBounds(group.getBounds().pad(0.1));
+        }
     </script>
 </body>
 </html>

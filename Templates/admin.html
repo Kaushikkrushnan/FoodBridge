@@ -18,6 +18,7 @@
             line-height: 1.6;
         }
 
+        /* Navigation Bar */
         .navbar {
             background: #0ea5e9;
             padding: 1rem 2rem;
@@ -44,6 +45,7 @@
             background: rgba(255,255,255,0.2);
         }
 
+        /* Container */
         .container {
             max-width: 1200px;
             margin: 2rem auto;
@@ -56,6 +58,7 @@
             font-size: 2rem;
         }
 
+        /* Table Styling */
         .table-container {
             background: white;
             border-radius: 10px;
@@ -94,6 +97,7 @@
             background: #f8fafc;
         }
 
+        /* Verified rows - light green background */
         tr.verified {
             background: #d1fae5;
         }
@@ -102,6 +106,7 @@
             background: #a7f3d0;
         }
 
+        /* Pending rows - light yellow background */
         tr.pending {
             background: #fef3c7;
         }
@@ -110,6 +115,7 @@
             background: #fde68a;
         }
 
+        /* Status Badge */
         .status {
             display: inline-block;
             padding: 0.25rem 0.75rem;
@@ -128,6 +134,7 @@
             color: white;
         }
 
+        /* Action Buttons */
         .action-buttons {
             display: flex;
             gap: 0.5rem;
@@ -176,6 +183,7 @@
             transform: translateY(-1px);
         }
 
+        /* Certificate Link */
         .cert-link {
             color: #0ea5e9;
             text-decoration: none;
@@ -186,18 +194,27 @@
             text-decoration: underline;
         }
 
+        /* Empty State */
         .empty-state {
             text-align: center;
             padding: 3rem;
             color: #64748b;
         }
 
+        /* Form for POST requests */
         .inline-form {
             display: inline;
         }
     </style>
 </head>
 <body>
+  <div style="position: absolute; top: 10px; right: 20px;">
+    {% if user_name %}
+      Logged in as: {{ user_name }} ({{ user_role }})<br>
+      Session ID: {{ db_session_id }}
+    {% endif %}
+  </div>
+    <!-- Navigation Bar -->
     <nav class="navbar">
         <ul>
             <li><a href="{{ url_for('index') }}">Home</a></li>
@@ -208,62 +225,108 @@
     </nav>
 
     <div class="container">
-        <h1>Admin Dashboard – NGO Verification</h1>
+        <h1>Admin Dashboard – NGOrVtrifica<ion/h1>
 
-        <div class="table-container">
-            {% if ngos %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>NGO Name</th>
-                        <th>Email</th>
-                        <th>Registration Number</th>
-                        <th>Certificates</th>
-                        <th>Verification Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
+        <div claas="sabls-conabener"er">
+                {%ngo gos %}
+        <   <tbble>
+                <hed>
+                    <>
+                       <h>NGO Nam</th>
+                        <th>Ema</th>
+                       <th>ReistatonNumbe</h>
+                        <th>Crtific</th>
+                       <th>Vrificion Stts</h>
+                       <th>Actos</th>
+                   </t>
+               </thed>
                 <tbody>
-                    {% for ngo in ngos %}
-                    <tr class="{{ 'verified' if ngo.verified else 'pending' }}">
-                        <td><strong>{{ ngo.name or 'N/A' }}</strong></td>
-                        <td>{{ ngo.email or 'N/A' }}</td>
-                        <td>{{ ngo.registration_number or 'N/A' }}</td>
-                        <td>
-                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                                {% if ngo.society_cert %}
-                                <a href="/{{ ngo.society_cert }}" target="_blank" class="cert-link">📄 Society Cert</a>
+                    {%fono n gs%}
+                     tr<thead>{{ 'veifie' ifngo.vifieels'enng' }}">
+                        <td><stro>{{ngonamr 'N/A' }}</stong></td>
+                        <t>{{ ngo.ml or'N/A'}}</t>
+                     <td>{{norgisrto_umbr o 'N/A' }}</td>
+                        <td
+                             div <tr>dispayflxlexdrctioncolungp.25rem
+                                % .ociety_cert%
+                                     a hr f<t/{{ ng>.sGciety_ceOtN}}"tet="_blak"class=ct-lnk">📄 SoctyCerta
+                                {% en  f %}      <th>Email</th>
+                                {%  f ngo.tru t_deed %}
+                                    <a href  /{{ ngo.tiust_seed }}trtargnt N_ulmne" class="ce<t-lihk">📄TrusDeed</>
+                                {% enf %}
+                                {% if osctin8_ct %}
+                                    <href="/{{ng.ectin_cert}}" taet="_lnk"class="crk">📄Setio 8 Ct</a
+            <button onclick="showTab('volunteers')" class="tab-btn" style="padding: 0.75rem 1.5rem; background: #e0e7ff; color: #0ea5e9; border: none; border-radius: 6px; margin-right: 0.5rem; cursor: pointer;">Volunteers</button>
+                                {% <ndif %}
+                                {%fictn>t go.ocety_ctdno ngo.rut_ded a ot .ection8_cert%
+                                     s an      <th>Verifi9ia3bo ">NoSdocutents</spa<>
+                             t{%f %}
+                           div
+                          t        <th>Actions</th>
+                         t >
+                            {%  f ngo. erified %}
+                                <span    </tr>us veifie>Vifd✅</s>
+                    {%s %}
+                h           <spclass=s peding">Pnding⏳span
+                b    {% ndif %}
+                        td
+                         t    {% for ngo in ngos %}
+                                    <tr a=einn-bgttoos">
+e                               {% ff noi 'poiv'ifie %}
+                                    <!-- Vfy Btton-POST frm ->
+                                <fom ction="{{ url_for'admin.verify_ngo' id=ngoid}}" mhod="POST" clss="in-fom
+                                         button   p<tdsubmit" >sass="{tm ben v''ofytd✅Vify</bton>
+                                   form
+                                     !-- R jedt Butt>n - POST f{ mg-->
+o                                   <forr  ct/oA="{{ url_for('admin}/tje_ngo', d=ngo.id)}}" mhod="POST" clas="inline-form"
+                                         button type="subm t"        btn b>nejectoncicketrconfrm('Aryousu you wantt ejct thNGO?Thi ctincannote undone'">❌Reject</buo
+                                     /fivm>
+                                {%syndil %}
+                               s<!-:;NGO-Dirpan Lctko--c
+                                l% ifungo.regimnr; .o2rnu;ber%
+                                     a hr f  https://ngodarpan.g v.in/index.php/h me/sea chgyregno?ceito={{_ngoet gistration_nu%ber}}}"target="_blank"class=btn bt-lk">🔗heck n NGO Dara
                                 {% endif %}
-                                {% if ngo.trust_deed %}
-                                <a href="/{{ ngo.trust_deed }}" target="_blank" class="cert-link">📄 Trust Deed</a>
-                                {% endif %}
-                                {% if ngo.section8_cert %}
-                                <a href="/{{ ngo.section8_cert }}" target="_blank" class="cert-link">📄 Section 8 Cert</a>
+                                                    <a href="/{{ ngo.society_cert }}" target="_blank" class="cert-link">📄 Society Cert</a>
+                          t >
+                    </tr                   {% endif %}
+                           or                                       <a href="/{{ ngo.trust_deed }}" target="_blank" class="cert-link">📄 Trust Deed</a>
+                 /tbody>
+            </t  le>
+            {%  l{% %}
+                        emp  gssae_rt %}
+                 p>N  NGOs f u d  n t e/d sei_"r.</t>
+            </_bv>
+    k=iit{%nf %}
+   </dv
+   div
                                 {% endif %}
                                 {% if not ngo.society_cert and not ngo.trust_deed and not ngo.section8_cert %}
-                                <span style="color: #94a3b8;">No documents</span>
+                                    <span style="color: #94a3b8;">No documents</span>
                                 {% endif %}
                             </div>
                         </td>
                         <td>
                             {% if ngo.verified %}
-                            <span class="status verified">Verified ✅</span>
+                                <span class="status verified">Verified ✅</span>
                             {% else %}
-                            <span class="status pending">Pending ⏳</span>
+                                <span class="status pending">Pending ⏳</span>
                             {% endif %}
                         </td>
                         <td>
                             <div class="action-buttons">
                                 {% if not ngo.verified %}
-                                <form action="{{ url_for('admin.verify_ngo', id=ngo.id) }}" method="POST" class="inline-form">
-                                    <button type="submit" class="btn btn-verify">✅ Verify</button>
-                                </form>
-                                <form action="{{ url_for('admin.reject_ngo', id=ngo.id) }}" method="POST" class="inline-form">
-                                    <button type="submit" class="btn btn-reject" onclick="return confirm('Are you sure you want to reject this NGO? This action cannot be undone.');">❌ Reject</button>
-                                </form>
+                                    <!-- Verify Button - POST form -->
+                                    <form action="{{ url_for('admin.verify_ngo', id=ngo.id) }}" method="POST" class="inline-form">
+                                        <button type="submit" class="btn btn-verify">✅ Verify</button>
+                                    </form>
+                                    <!-- Reject Button - POST form -->
+                                    <form action="{{ url_for('admin.reject_ngo', id=ngo.id) }}" method="POST" class="inline-form">
+                                        <button type="submit" class="btn btn-reject" onclick="return confirm('Are you sure you want to reject this NGO? This action cannot be undone.');">❌ Reject</button>
+                                    </form>
                                 {% endif %}
+                                <!-- NGO Darpan Link -->
                                 {% if ngo.registration_number %}
-                                <a href="https://ngodarpan.gov.in/index.php/home/searchbyregno?regno={{ ngo.registration_number }}" target="_blank" class="btn btn-link">🔗 Check on NGO Darpan</a>
+                                    <a href="https://ngodarpan.gov.in/index.php/home/searchbyregno?regno={{ ngo.registration_number }}" target="_blank" class="btn btn-link">🔗 Check on NGO Darpan</a>
                                 {% endif %}
                             </div>
                         </td>

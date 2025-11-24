@@ -1,14 +1,52 @@
-<!-- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<title>Surplus-to-NGO Connector</title>
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
-	<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+	<link
+		rel="stylesheet"
+		href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"
+	/>
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+	<style>
+		.food-donor-login-key {
+			position: fixed;
+			top: 10px;
+			right: 10px;
+			z-index: 1000;
+			background-color: #4f46e5;
+			color: white;
+			padding: 8px 12px;
+			border-radius: 6px;
+			font-weight: bold;
+			text-decoration: none;
+			font-family: Arial, sans-serif;
+		}
+		.food-donor-login-key:hover {
+			background-color: #4338ca;
+		}
+		.disabled-button {
+			background-color: #9ca3af !important; /* Tailwind gray-400 */
+			cursor: not-allowed !important;
+			pointer-events: none;
+			opacity: 0.7;
+		}
+	</style>
 </head>
 <body>
 	<div class="wrapper">
+		<!-- Top-right user info display for any logged-in user -->
+		{% if user_name and user_email and db_session_id %}
+		<div class="food-donor-login-key">
+			Logged in as: <span class="font-bold">{{ user_name }}</span><br>
+			Email: <span>{{ user_email }}</span><br>
+			Session ID: <span>{{ db_session_id }}</span>
+		</div>
+		<div style="position: fixed; top: 70px; right: 10px; z-index: 1000;">
+			<a href="{{ url_for('auth.logout') }}" class="food-donor-login-key" style="background-color: #e53e3e; color: white;">Logout</a>
+		</div>
+		{% endif %}
 		<header>
 			<div class="brand">
 				<div class="logo">SF</div>
@@ -17,133 +55,114 @@
 					<p class="subtitle">Bridge surplus food providers and NGOs in real time</p>
 				</div>
 			</div>
-			<div class="actions">
-				<a class="link-btn secondary" href="{{ url_for('admin.admin') }}">Admin</a>
-			</div>
 		</header>
+
+<nav>
+<!-- Removed Food Donor Registration link to fix rendering as requested -->
+</nav>
 
 		<div class="hero">
 			<div class="photo-panel"></div>
 			<div class="grid">
 				<section class="card">
-				<h3 class="section-title">Reduce waste. Feed more. Connect fast.</h3>
-				<p class="note">This platform connects surplus food donors with NGOs for quick, local redistribution. Choose your role to continue.</p>
-				<div class="list" style="margin-top:10px;">
-					<div class="item">
-						<h4>How it helps</h4>
-						<div class="meta">• Food Donors post available surplus with pickup time and location</div>
-						<div class="meta">• NGOs share needs and pickup capacity in their service area</div>
-					</div>
-				</div>
-				<hr class="sep">
-				<h3 class="section-title">Choose one</h3>
-				<div class="row two">
-					<div class="card" style="background:#0c1426;">
-						<h4 style="margin:0 0 8px 0;">Food Donor</h4>
-						<p class="meta">Post available surplus with pickup time and location.</p>
-						<div class="actions" style="margin-top:10px;">
-							<a href="{{ url_for('food_donor') }}"><button type="button">Continue as Food Donor</button></a>
+					<h3 class="section-title">Reduce waste. Feed more. Connect fast.</h3>
+					<p class="note">
+						This platform connects surplus food donors with NGOs for quick, local redistribution. Choose your role to
+						continue.
+					</p>
+					<div class="list" style="margin-top: 10px">
+						<div class="item">
+							<h4>How it helps</h4>
+							<div class="meta">• Food Donors post available surplus with pickup time and location</div>
+							<div class="meta">• NGOs share needs and pickup capacity in their service area</div>
 						</div>
 					</div>
-					<div class="card" style="background:#0c1426;">
-						<h4 style="margin:0 0 8px 0;">NGO Request for Surplus Food</h4>
-						<p class="meta">Post requests, capacity, and service area.</p>
-						<div class="actions" style="margin-top:10px;">
-							<a href="{{ url_for('auth.ngo_login') }}"><button type="button">Continue as NGO</button></a>
+					<hr class="sep" />
+					<h3 class="section-title">Choose your role</h3>
+					{% set session_key = session.get('user_session_key', '') %}
+					<div class="row three">
+						<!-- CARD 1: NGO -->
+						<div class="card" style="background: #0c1426;">
+							<h4 style="margin: 0 0 8px 0;">NGO</h4>
+							<p class="meta">Register or log in to view and accept food donations.</p>
+							<div class="actions" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px">
+							{% if user_name and user_email and db_session_id %}
+								<button type="button" class="disabled-button" disabled>Register as NGO</button>
+							{% else %}
+								<a href="{{ url_for('auth.ngo_register') }}" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">Register as NGO</a>
+							{% endif %}
+							</div>
+						</div>
+						<!-- CARD 2: FOOD DONOR -->
+						<div class="card" style="background: #0c1426;">
+							<h4 style="margin: 0 0 8px 0;">Food Donor</h4>
+							<p class="meta">Donate surplus food and track your accepted NGOs.</p>
+							<div class="actions" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px">
+							{% if user_name and user_email and db_session_id %}
+								<button type="button" class="disabled-button" disabled>Donate Food</button>
+							{% else %}
+								<a href="{{ url_for('food_donor') }}" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">Donate Food</a>
+							{% endif %}
+							</div>
+						</div>
+						<!-- CARD 3: VOLUNTEER -->
+						<div class="card" style="background: #0c1426;">
+							<h4 style="margin: 0 0 8px 0;">Volunteer</h4>
+							<p class="meta">Register or log in to help with food distribution and tracking.</p>
+							<div class="actions" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px">
+							{% if user_name and user_email and db_session_id %}
+								<button type="button" class="disabled-button" disabled>Register as Volunteer</button>
+							{% else %}
+								<a href="{{ url_for('auth.volunteer_login') }}" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">Register as Volunteer</a>
+							{% endif %}
+							</div>
 						</div>
 					</div>
-				</div>
 				</section>
 			</div>
 			<div class="photo-panel"></div>
 		</div>
+
+		<!-- Live Tracking Section -->
+		<div class="live-tracking bg-gray-100 py-12 px-4">
+			<div class="max-w-4xl mx-auto text-center">
+				<h2 class="text-3xl font-bold text-gray-800 mb-4">Live Tracking</h2>
+				<p class="text-lg text-gray-600 mb-8">
+					Monitor your food donation journey in real-time. Track pickup, transport, and delivery status.
+				</p>
+				<div class="flex justify-center space-x-4">
+          {% if user_id %}
+					<a
+						href="{{ url_for('dashboard.progress') }}"
+						class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition duration-300 inline-block"
+						>View Progress Tracking</a
+					>
+          {% else %}
+					<a
+						href="{{ url_for('dashboard.progress') }}"
+						class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition duration-300 inline-block disabled-button"
+						aria-disabled="true"
+					>View Progress Tracking</a>
+          {% endif %}
+					<a
+						href="{{ url_for('live_tracking') }}"
+						class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition duration-300 inline-block"
+						>Live Volunteer Tracking</a
+					>
+				</div>
+			</div>
+		</div>
+
+		<div style="position: absolute; top: 10px; right: 20px; z-index: 1000;">
+  {% if user_session_key %}
+    <div class="bg-indigo-600 text-white px-4 py-2 rounded shadow-lg">
+      Logged in as: <b>{{ user_name }}</b> ({{ user_role }})<br>
+      {% if user_email %}Email: {{ user_email }}<br>{% endif %}
+      {% if user_phone %}Phone: {{ user_phone }}<br>{% endif %}
+      Session: {{ user_session_key }}
+    </div>
+  {% endif %}
+</div>
 	</div>
 </body>
 </html>
-
- -->
- <!DOCTYPE html>
- <html lang="en">
- <head>
-	 <meta charset="utf-8">
-	 <meta name="viewport" content="width=device-width, initial-scale=1">
-	 <title>Surplus-to-NGO Connector</title>
-	 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
-	 <!-- 
-	   FIXED: This now points to the correct path 
-	   as defined in your SETUP.md file.
-	 -->
-	 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
- </head>
- <body>
-	 <div class="wrapper">
-		 <header>
-			 <div class="brand">
-				 <div class="logo">SF</div>
-				 <div>
-					 <p class="title">Surplus-to-NGO Connector</p>
-					 <p class="subtitle">Bridge surplus food providers and NGOs in real time</p>
-				 </div>
-			 </div>
-			 <div class="actions">
-				 <a class="link-btn secondary" href="{{ url_for('admin.admin') }}">Admin</a>
-			 </div>
-		 </header>
- 
-		 <div class="hero">
-			 <div class="photo-panel"></div>
-			 <div class="grid">
-				 <section class="card">
-				 <h3 class="section-title">Reduce waste. Feed more. Connect fast.</h3>
-				 <p class="note">This platform connects surplus food donors with NGOs for quick, local redistribution. Choose your role to continue.</p>
-				 <div class="list" style="margin-top:10px;">
-					 <div class="item">
-						 <h4>How it helps</h4>
-						 <div class="meta">• Food Donors post available surplus with pickup time and location</div>
-						 <div class="meta">• NGOs share needs and pickup capacity in their service area</div>
-					 </div>
-				 </div>
-				 <hr class="sep">
-				 <h3 class="section-title">Choose your role</h3>
-				 <div class="row two">
-					 <!-- CARD 1: NGO -->
-					 <div class="card" style="background:#0c1426;">
-						 <h4 style="margin:0 0 8px 0;">NGO</h4>
-						 <p class="meta">Register or log in to view and accept food donations.</p>
-						 <div class="actions" style="margin-top:10px;">
-							 <a href="{{ url_for('auth.ngo_login') }}"><button type="button">Continue as NGO</button></a>
-						 </div>
-					 </div>
-					 <!-- CARD 2: VOLUNTEER -->
-					 <div class="card" style="background:#0c1426;">
-						 <h4 style="margin:0 0 8px 0;">Volunteer</h4>
-						 <p class="meta">Offer your time to help with food pickups and delivery.</p>
-						 <div class="actions" style="margin-top:10px;">
-							 <!-- This now correctly points to your food donor page -->
-							 <a href="{{ url_for('food_donor') }}"><button type="button">Continue as Food Donor</button></a>
-						 </div>
-					 </div>
-				 </div>
-				 </section>
-			 </div>
-			 <div class="photo-panel"></div>
-		 </div>
-
-		 <!-- Live Tracking Section -->
-		 <div class="live-tracking bg-gray-100 py-12 px-4">
-			 <div class="max-w-4xl mx-auto text-center">
-				 <h2 class="text-3xl font-bold text-gray-800 mb-4">Live Tracking</h2>
-				 <p class="text-lg text-gray-600 mb-8">Monitor your food donation journey in real-time. Track pickup, transport, and delivery status.</p>
-				 <div class="flex justify-center space-x-4">
-					 <a href="{{ url_for('dashboard.progress') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition duration-300 inline-block">
-						 View Progress Tracking
-					 </a>
-					 <a href="{{ url_for('live_tracking') }}" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition duration-300 inline-block">
-						 Live Volunteer Tracking
-					 </a>
-				 </div>
-			 </div>
-		 </div>
-	 </div>
- </body>
- </html>

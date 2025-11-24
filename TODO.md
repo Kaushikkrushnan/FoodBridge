@@ -1,12 +1,7 @@
-# TODO: Implement NGO Accept Donations and Update Dashboards
+# TODO for Adding Phone Number Field in food_donor.html and Backend
 
-## Completed Features:
-- [x] Add /accept_food_request route in ngo_routes.py: accepts ngo_id, request_id, sets ngo_id, status='assigned', assigns nearest volunteer.
-- [x] Update donor_dashboard in dashboard_routes.py: query distinct NGOs with accepted donations, return as accepted_ngos.
-- [x] Update Donor_dashboard.html: change section to "Accepted Food Donors", template to show NGO cards.
-- [x] Update NGO_dashboard.html JS: replace simulation with real API call to accept request.
-
-## Followup steps:
-- [x] Test NGO accept functionality
-- [x] Test donor dashboard shows accepted NGOs
-- [x] Verify volunteer assignment
+- [ ] Step 1: Update Templates/food_donor.html to add phone number input field with validation
+- [ ] Step 2: Update routes/donor_routes.py submit_food_request to handle phone field and insert into DB
+- [ ] Step 3: Create migration script temp_add_phone_column_food_donors.py to ALTER TABLE and add phone column to food_donors table
+- [ ] Step 4: Test the changes end-to-end: form validation, data insertion, database update
+- [ ] Step 5: Cleanup: Remove or document migration script for future reference

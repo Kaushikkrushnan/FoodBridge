@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Volunteer Login - FoodBridge</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC9Ydvs8WhexKOZjzE0U2tTOnEM0THlIms",
+            authDomain: "foodbridge-c75de.firebaseapp.com",
+            projectId: "foodbridge-c75de",
+            storageBucket: "foodbridge-c75de.firebasestorage.app",
+            messagingSenderId: "952654772110",
+            appId: "1:952654772110:web:eca6f852147dc37ff0d6df",
+            measurementId: "G-5T24X5YH90"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const form = document.getElementById("loginForm");
+
+            form.addEventListener("submit", async (e) => {
+                e.preventDefault();
+
+                const email = document.getElementById("email").value.trim();
+                const password = document.getElementById("password").value;
+
+                if (!email || !password) {
+                    alert("Please enter both email and password.");
+                    return;
+                }
+
+                const submitBtn = document.getElementById("submitBtn");
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Logging in...";
+
+                try {
+                    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                    const user = userCredential.user;
+
+                    const idToken = await user.getIdToken();
+
+                    const response = await fetch("/login_volunteer", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ id_token: idToken })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        alert("Login successful! Redirecting to dashboard...");
+                        window.location.href = "/volunteer_dashboard";
+                    } else {
+                        alert(`Login failed: ${data.message || "Unknown error"}`);
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = "Login";
+                    }
+                } catch (error) {
+                    alert(`Login failed: ${error.message}`);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Login";
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Volunteer Login</h1>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email *</label>
+                <input type="email" id="email" name="email" required />
+            </div>
+            <div class="form-group">
+                <label for="password">Password *</label>
+                <input type="password" id="password" name="password" required />
+            </div>
+            <button type="submit" id="submitBtn">Login</button>
+        </form>
+        <p>Don't have an account? <a href="/volunteer_register">Register here</a></p>
+    </div>
+</body>
+</html>

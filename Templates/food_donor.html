@@ -1,82 +1,3 @@
-na<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Volunteer Portal • Surplus-to-NGO</title>
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
-	<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-</head>
-<body>
-	<div class="wrapper">
-		<header>
-			<div class="brand">
-				<div class="logo">SF</div>
-				<div>
-					<p class="title">Volunteer Portal</p>
-					<p class="subtitle">Offer your time to help pickups and coordination</p>
-				</div>
-			</div>
-			<div class="actions">
-				<a class="link-btn secondary" href="{{ url_for('index') }}">Back to Home</a>
-			</div>
-		</header>
-
-		<section class="card">
-			<h3 class="section-title">Volunteer Sign-up</h3>
-			<form>
-				<div class="row two">
-					<div>
-						<label for="volName">Your name</label>
-						<input id="volName" name="volName" type="text" placeholder="e.g., Anandan K." required>
-					</div>
-					<div>
-						<label for="volContact">Contact (phone or email)</label>
-						<input id="volContact" name="volContact" type="text" placeholder="e.g., +91 9xxxx xxxxx" required>
-					</div>
-				</div>
-				<div class="row two">
-					<div>
-						<label for="vehicle">Vehicle/Capacity</label>
-						<input id="vehicle" name="vehicle" type="text" placeholder="e.g., Bike, can carry 20 boxes">
-					</div>
-					<div>
-						<label for="area">Preferred area</label>
-						<input id="area" name="area" type="text" placeholder="e.g., Velachery, Adyar">
-					</div>
-				</div>
-				<div class="row">
-					<div>
-						<label for="availability">Availability</label>
-						<textarea id="availability" name="availability" placeholder="e.g., Weekdays 6-9 PM, Weekends any time"></textarea>
-					</div>
-				</div>
-				<div class="actions">
-					<button type="submit">Save locally</button>
-					<button type="reset" class="secondary">Clear</button>
-				</div>
-				<p class="note">Static page. Connect to a Python backend later to manage volunteer assignments.</p>
-			</form>
-			<hr class="sep">
-			<h3 class="section-title">Recent Volunteer Offers (examples)</h3>
-			<div class="list" aria-live="polite">
-				<div class="item">
-					<h4>Priya S. • Bike</h4>
-					<div class="meta">Areas: T. Nagar, Saidapet • Availability: Weekdays 7-9 PM</div>
-				</div>
-				<div class="item">
-					<h4>Rahul M. • Van</h4>
-					<div class="meta">Areas: Adyar, Velachery • Availability: Weekends</div>
-				</div>
-			</div>
-		</section>
-
-		<div class="footer">
-			Built with simple HTML + CSS. Ready to connect to Python (Flask/FastAPI) when needed.
-		</div>
-	</div>
-</body>
-</html> -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -84,8 +5,26 @@ na<!-- <!DOCTYPE html>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Food Donor Portal • Surplus-to-NGO</title>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
-    <!-- This file links to the new CSS file -->
-	<link rel="stylesheet" href="{{ url_for('static', filename='Food_donor.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Food_donor.css') }}">
+    <style>
+        .food-donor-login-key {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background-color: #4f46e5;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            font-family: Arial, sans-serif;
+        }
+        .food-donor-login-key:hover {
+            background-color: #4338ca;
+        }
+    </style>
 </head>
 <body>
 	<div class="wrapper">
@@ -98,17 +37,24 @@ na<!-- <!DOCTYPE html>
 				</div>
 			</div>
 			<div class="actions">
-				<a class="link-btn secondary" href="{{ url_for('index') }}">Back to Home</a>
-				<a class="link-btn secondary" href="{{ url_for('admin.admin') }}">Admin</a>
+				<!-- Removed Back to Home and Admin keys as per user request -->
 			</div>
 		</header>
 
+		<div style="position: absolute; top: 10px; right: 20px; z-index: 1000;">
+    {% if session.get('user_contact') %}
+        <div class="food-donor-login-key bg-indigo-600 text-white px-4 py-2 rounded shadow-lg">
+            Logged in as: <b>{{ session['user_contact'] }}</b>
+        </div>
+    {% endif %}
+</div>
+
+    {% if session.get('user_contact') %}
+        <a href="{{ url_for('auth.food_donor_logout') }}" class="food-donor-login-key" style="top: 50px; right: 10px; position: fixed; background-color: #e53e3e; color: white;">Logout</a>
+    {% endif %}
+
 		<section class="card">
 			<h3 class="section-title">New Food Donation</h3>
-            <!-- 
-                NOTE: This form will need a new route in your Flask app, 
-                e.g., @app.route('/submit_food_request', methods=['POST']) 
-            -->
 			<form action="{{ url_for('donor.submit_food_request') }}" method="POST">
 				<div class="row two">
 					<div>
@@ -116,10 +62,23 @@ na<!-- <!DOCTYPE html>
 						<input id="donor_name" name="donor_name" type="text" placeholder="e.g., City Bakery" required>
 					</div>
 					<div>
+						<label for="phone">Phone Number</label>
+						<input 
+						   id="phone" 
+						   name="phone" 
+						   type="tel" 
+						   placeholder="Enter 10-digit phone number" 
+						   pattern="[0-9]{10}" 
+						   required
+						   class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-500"
+						>
+					</div>
+				</div>
+				<div class="row two">
+					<div>
 						<label for="food_type">Food Type</label>
 						<input id="food_type" name="food_type" type="text" placeholder="e.g., Bread, Sandwiches, Biryani" required>
 					</div>
-				</div>
                 <div class="row two">
                     <div>
 						<label for="quantity">Quantity</label>
@@ -180,13 +139,39 @@ na<!-- <!DOCTYPE html>
 				</div>
 				<p class="note">An available NGO will be notified to accept your request.</p>
 			</form>
-			
 		</section>
+
+        <!-- My Food Donations Section -->
+        <section class="card mt-10 p-6 bg-white rounded-lg shadow-md">
+            <h3 class="section-title mb-4 text-2xl font-bold text-gray-800">My Food Donations</h3>
+            {% if donor_food_donations and donor_food_donations|length > 0 %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for donation in donor_food_donations %}
+                <div class="p-4 border rounded-lg shadow-sm hover:shadow-md transition duration-300">
+                    <h4 class="font-semibold text-lg mb-1">{{ donation.organization_name }}</h4>
+                    <p><span class="font-semibold">Food Type:</span> {{ donation.food_type }}</p>
+                    <p><span class="font-semibold">Quantity:</span> {{ donation.quantity }}</p>
+                    <p><span class="font-semibold">Ready for Pickup:</span> {{ donation.ready_for_pickup_time }}</p>
+                    <p><span class="font-semibold">Pickup Location:</span> {{ donation.pickup_location }}</p>
+                    <p><span class="font-semibold">Category:</span> {{ donation.category or 'N/A' }}</p>
+                    <p><span class="font-semibold">Cuisine Type:</span> {{ donation.cuisine_type or 'N/A' }}</p>
+                    <p><span class="font-semibold">Spice Level:</span> {{ donation.spice_level or 'N/A' }}</p>
+                    <p class="text-xs text-gray-400 mt-2">Submitted on: {{ donation.created_at }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-600">You have not made any food donations yet.</p>
+            {% endif %}
+        </section>
+        <!-- End My Food Donations Section -->
 
 		<div class="footer">
 			Thank you for your generosity!
 		</div>
 	</div>
+    <a href="{{ url_for('auth.food_donor_login') }}" class="food-donor-login-key" title="Food Donor Login">
+        <button type="button" class="food-donor-login-key {% if session.get('user_contact') %}disabled-button{% endif %}" {% if session.get('user_contact') %}disabled{% endif %}>Food Donor Login</button>
+    </a>
 </body>
 </html>
-

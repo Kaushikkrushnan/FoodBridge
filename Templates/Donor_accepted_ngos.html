@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Accepted NGOs - Donor Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        
+        .status-accepted {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-assigned {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status-in_transit {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-delivered {
+            background-color: #e0e7ff;
+            color: #3730a3;
+        }
+    </style>
+</head>
+<body class="bg-sky-100 text-gray-900">
+    {% if user_name %}
+    {% include 'profile_box.html' %}
+    {% endif %}
+    
+    <div class="container max-w-7xl mx-auto p-4 md:p-8">
+        <!-- Header Section -->
+        <div class="dashboard-header text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">My Accepted NGOs</h1>
+            <p class="text-lg text-gray-600">Track your donations and volunteer progress</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex justify-center gap-4 mb-8">
+            <a href="{{ url_for('index') }}" class="btn bg-sky-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-sky-700 transition duration-300">Home</a>
+            <a href="{{ url_for('dashboard.donor_dashboard') }}" class="btn bg-blue-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-blue-700 transition duration-300">Donor Dashboard</a>
+        </nav>
+
+        <!-- Map Section -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Location Tracking</h2>
+            <div id="map"></div>
+        </div>
+
+        <!-- Accepted NGOs with Progress Section -->
+        <div class="mb-12">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Accepted NGOs & Progress</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="accepted-ngos-grid">
+                {% if accepted_donations %}
+                    {% for donation in accepted_donations %}
+                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                        <h3 class="text-2xl font-semibold mb-2">{{ donation.ngo_name or 'N/A' }}</h3>
+                        <p><strong>NGO Email:</strong> {{ donation.ngo_email or 'N/A' }}</p>
+                        <p><strong>NGO Address:</strong> {{ donation.ngo_address or 'N/A' }}</p>
+                        <hr class="my-3">
+                        <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
+                        <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
+                        <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
+                        <p><strong>Assigned Volunteer:</strong> {{ donation.volunteer_name or 'N/A' }}</p>
+                        <p><strong>Volunteer Contact:</strong> {{ donation.volunteer_contact or 'N/A' }}</p>
+                        <p><strong>Status:</strong> 
+                            <span class="status-badge status-{{ donation.status or 'accepted' }}">
+                                {{ donation.status.title() if donation.status else 'Accepted' }}
+                            </span>
+                        </p>
+
+                        <div class="mt-4">
+                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewNgoDetails({{ donation.id }})">View Details</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-gray-500 text-lg">No accepted NGOs yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- NGO Details Modal -->
+    <div id="ngo-modal" class="modal" style="display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.6);">
+        <div class="modal-content bg-white rounded-lg shadow-2xl" style="position: relative; margin: 10% auto; padding: 2rem; width: 90%; max-width: 500px;">
+            <span class="modal-close absolute top-4 right-5 text-3xl font-bold text-gray-500 hover:text-red-600 cursor-pointer" onclick="closeNgoModal()">&times;</span>
+            <div id="ngo-modal-body">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const acceptedDonations = {{ accepted_donations|tojson }};
+        
+        // Initialize map
+        const map = L.map('map').setView([13.0827, 80.2707], 12); // Default to Chennai
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Add markers for NGOs and volunteers
+        const markers = [];
+        acceptedDonations.forEach(donation => {
+            if (donation.ngo_lat && donation.ngo_lon) {
+                const ngoMarker = L.marker([donation.ngo_lat, donation.ngo_lon])
+                    .addTo(map)
+                    .bindPopup(`
+                        <strong>${donation.ngo_name || 'NGO'}</strong><br>
+                        ${donation.ngo_address || ''}<br>
+                        Status: ${donation.status || 'Accepted'}
+                    `);
+                markers.push(ngoMarker);
+            }
+            
+            if (donation.volunteer_lat && donation.volunteer_lon) {
+                const volunteerMarker = L.marker([donation.volunteer_lat, donation.volunteer_lon], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    })
+                })
+                    .addTo(map)
+                    .bindPopup(`
+                        <strong>Volunteer: ${donation.volunteer_name || 'N/A'}</strong><br>
+                        Contact: ${donation.volunteer_contact || 'N/A'}<br>
+                        Assigned to: ${donation.ngo_name || 'NGO'}
+                    `);
+                markers.push(volunteerMarker);
+            }
+            
+            // Draw route if both locations exist
+            if (donation.ngo_lat && donation.ngo_lon && donation.volunteer_lat && donation.volunteer_lon) {
+                L.polyline([
+                    [donation.volunteer_lat, donation.volunteer_lon],
+                    [donation.ngo_lat, donation.ngo_lon]
+                ], {
+                    color: 'blue',
+                    weight: 3,
+                    opacity: 0.5
+                }).addTo(map);
+            }
+        });
+        
+        // Fit map to show all markers
+        if (markers.length > 0) {
+            const group = new L.featureGroup(markers);
+            map.fitBounds(group.getBounds().pad(0.1));
+        }
+        
+        function viewNgoDetails(donationId) {
+            const donation = acceptedDonations.find(d => d.id === donationId);
+            if (!donation) {
+                console.error('Donation not found');
+                return;
+            }
+
+            const modalBody = document.getElementById('ngo-modal-body');
+            const escapeHtml = (text) => {
+                if (!text) return 'N/A';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            };
+
+            modalBody.innerHTML = `
+                <h2 class="text-3xl font-bold mb-4">NGO & Donation Details</h2>
+                <h3 class="text-xl font-semibold mb-3 text-blue-600">NGO Information</h3>
+                <p class="text-lg mb-2"><strong>Name:</strong> ${escapeHtml(donation.ngo_name || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Email:</strong> ${escapeHtml(donation.ngo_email || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Address:</strong> ${escapeHtml(donation.ngo_address || 'N/A')}</p>
+                <hr class="my-4">
+                <h3 class="text-xl font-semibold mb-3 text-green-600">Donation Information</h3>
+                <p class="text-lg mb-2"><strong>Food Type:</strong> ${escapeHtml(donation.food_type || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Quantity:</strong> ${escapeHtml(donation.quantity || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Pickup Location:</strong> ${escapeHtml(donation.pickup_location || 'N/A')}</p>
+                <hr class="my-4">
+                <h3 class="text-xl font-semibold mb-3 text-purple-600">Volunteer Information</h3>
+                <p class="text-lg mb-2"><strong>Name:</strong> ${escapeHtml(donation.volunteer_name || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Contact:</strong> ${escapeHtml(donation.volunteer_contact || 'N/A')}</p>
+                <p class="text-lg mb-2"><strong>Status:</strong> 
+                    <span class="status-badge status-${donation.status || 'accepted'}">
+                        ${escapeHtml(donation.status ? donation.status.title() : 'Accepted')}
+                    </span>
+                </p>
+                <hr class="my-4">
+                <p class="text-center text-green-600 font-semibold">Your donation has been accepted by this NGO and assigned to a volunteer.</p>
+            `;
+
+            document.getElementById('ngo-modal').style.display = 'block';
+        }
+        
+        function closeNgoModal() {
+            document.getElementById('ngo-modal').style.display = 'none';
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('ngo-modal');
+            if (event.target == modal) {
+                closeNgoModal();
+            }
+        }
+    </script>
+</body>
+</html>
+

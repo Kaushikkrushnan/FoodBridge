@@ -1,0 +1,11 @@
+volunteerId,name,email,phone,status,homeAddress.city,homeAddress.zipCode,vehicleType,availability,preferredArea,totalTripsCompleted
+V001,Alex Johnson,alex@email.com,99887 76655,Available,Chennai,600002,Sedan,"Mon PM, Wed AM, Fri Full",Central Chennai,42
+V002,Brenda Lee,brenda.l@net.co,97654 32109,On Duty,Madurai,625020,SUV,"Tue PM, Thu PM, Sat AM",North Madurai,18
+V003,Chris Baker,chris@example.com,96543 21098,Offline,Coimbatore,641018,Truck,"Sun Full",Race Course Area,5
+V004,Diana Rodriguez,d.rod@mail.com,95432 10987,Available,Chennai,600025,Sedan,"Mon AM, Wed PM, Fri AM",South Chennai,30
+V005,Elijah Cole,elijah@mail.com,94321 09876,Available,Chennai,600020,Van,"Tue AM, Thu Full",Adyar / Guindy,12
+V006,Fatima Hassan,fatima@net.biz,93210 98765,Offline,Madurai,625001,Hatchback,"Wed PM, Fri PM",Central Madurai,25
+V007,George White,george@email.co,92109 87654,On Duty,Coimbatore,641012,Truck,"Mon Full, Thu AM",Cross Cut Area,9
+V008,Helen Zhu,helen@zmail.com,91098 76543,Available,Chennai,600018,SUV,"Sat PM, Sun AM",T. Nagar / Teynampet,3
+V009,Isaac Mendez,isaac@mendez.org,90987 65432,Available,Madurai,625016,Sedan,"Tue PM, Thu PM",Bypass Road Area,51
+V010,Kelly O'Connell,kelly.o@work.com,89876 54321,Offline,Coimbatore,641014,Van,"Mon AM, Wed AM, Fri AM",Avinashi Road,68

@@ -1,8 +1,9 @@
 """
 NGO routes for food request management and volunteer rating
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from db import get_db_connection
+from database.assignment_db import insert_ngo_assignment, insert_food_donor_request
 
 ngo_bp = Blueprint('ngo', __name__)
 
@@ -123,75 +124,53 @@ def get_volunteer_ratings(volunteer_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@ngo_bp.route('/accept_food_request', methods=['POST'])
-def accept_food_request():
+# Additional route for NGO to review and accept food donor requests (moves data to food_donor_requests table first)
+@ngo_bp.route('/review_accept_food_request', methods=['POST'])
+def review_accept_food_request():
     """
-    NGO accepts a food donation request, assigns nearest volunteer.
+    NGO reviews and initially accepts a food donor request.
+    Moves from food_requests DB to food_donor_requests (pending review).
     Expects: ngo_id, request_id
     """
     try:
         data = request.get_json()
-        ngo_id = data.get('ngo_id')
+        ngo_id = data.get('ngo_id') or session.get('user_id')
         request_id = data.get('request_id')
 
         if not ngo_id or not request_id:
             return jsonify({'success': False, 'message': 'Missing ngo_id or request_id'}), 400
+        
+        conn_app = get_db_connection()
+        conn_assign = get_assignment_db_connection()
 
-        conn = get_db_connection()
+        # Fetch the food request from food_requests table
+        food_request = conn_app.execute('SELECT * FROM food_requests WHERE id = ?', (request_id,)).fetchone()
+        if not food_request:
+            conn_app.close()
+            return jsonify({'success': False, 'message': 'Food request not found'}), 404
+        
+        # Insert into food_donor_requests in assignment.db with status 'pending'
+        # Fetch NGO name
+        ngo_row = conn_app.execute('SELECT name FROM ngos WHERE id = ?', (ngo_id,)).fetchone()
+        ngo_name = ngo_row['name'] if ngo_row else 'Unknown NGO'
 
-        # Get request details including pickup location
-        request_data = conn.execute('''
-            SELECT pickup_lat, pickup_lon, ngo_id as current_ngo_id
-            FROM food_requests WHERE id = ?
-        ''', (request_id,)).fetchone()
+        # Insert into assignment db table with minimal data
+        cursor = conn_assign.cursor()
+        cursor.execute('''
+            INSERT INTO food_donor_requests
+            (assignment_id, food_donor_id, food_donor_name, ngo_id, ngo_name, status, ngo_acceptance_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (None, food_request['id'], food_request['donor_name'], ngo_id, ngo_name, 'pending', 'pending'))
+        conn_assign.commit()
 
-        if not request_data:
-            conn.close()
-            return jsonify({'success': False, 'message': 'Request not found'}), 404
+        # Optionally, delete from food_requests table as now transferred
+        conn_app.execute('DELETE FROM food_requests WHERE id = ?', (request_id,))
+        conn_app.commit()
 
-        if request_data['current_ngo_id']:
-            conn.close()
-            return jsonify({'success': False, 'message': 'Request already accepted by another NGO'}), 400
+        conn_app.close()
+        conn_assign.close()
 
-        pickup_lat = request_data['pickup_lat']
-        pickup_lon = request_data['pickup_lon']
-
-        if not pickup_lat or not pickup_lon:
-            conn.close()
-            return jsonify({'success': False, 'message': 'Invalid pickup location'}), 400
-
-        # Find nearest volunteer using distance and rating (70% distance, 30% rating)
-        volunteers = conn.execute('''
-            SELECT id, name, lat, lon, average_rating,
-                   (6371 * acos(cos(radians(?)) * cos(radians(lat)) * cos(radians(lon) - radians(?)) + sin(radians(?)) * sin(radians(lat)))) AS distance
-            FROM volunteers
-            WHERE verified = 1
-            ORDER BY (0.7 * distance + 0.3 * (5 - COALESCE(average_rating, 0))) ASC
-            LIMIT 1
-        ''', (pickup_lat, pickup_lon, pickup_lat)).fetchone()
-
-        if not volunteers:
-            conn.close()
-            return jsonify({'success': False, 'message': 'No available volunteers'}), 400
-
-        volunteer_id = volunteers['id']
-        volunteer_name = volunteers['name']
-
-        # Update request: set ngo_id, status='assigned', assigned_volunteer_id
-        conn.execute('''
-            UPDATE food_requests
-            SET ngo_id = ?, status = 'assigned', assigned_volunteer_id = ?
-            WHERE id = ?
-        ''', (ngo_id, volunteer_id, request_id))
-
-        conn.commit()
-        conn.close()
-
-        return jsonify({
-            'success': True,
-            'message': f'Request accepted! {volunteer_name} assigned.',
-            'volunteer_name': volunteer_name
-        }), 200
+        return jsonify({'success': True, 'message': 'Food request moved to NGO pending acceptance.'}), 200
 
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500

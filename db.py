@@ -4,8 +4,10 @@ SQLite database connection helper
 import sqlite3
 import os
 
-# Database path
+# Database paths
 DATABASE = os.path.join(os.path.dirname(__file__), 'database', 'app.db')
+AUTH_DATABASE = os.path.join(os.path.dirname(__file__), 'database', 'auth.db')
+VOLUNTEER_DATABASE = os.path.join(os.path.dirname(__file__), 'database', 'volunteer.db')
 
 
 def get_db_connection():
@@ -18,12 +20,30 @@ def get_db_connection():
     return conn
 
 
+def get_auth_db_connection():
+    """
+    Create and return a SQLite database connection for auth.db with Row factory.
+    """
+    conn = sqlite3.connect(AUTH_DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def get_volunteer_db_connection():
+    """
+    Create and return a SQLite database connection for volunteer.db with Row factory.
+    """
+    conn = sqlite3.connect(VOLUNTEER_DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 def init_db():
     """
     Initialize the database with all required tables.
     """
     conn = get_db_connection()
-    
+
     # NGOs table with updated schema
     conn.execute('''
         CREATE TABLE IF NOT EXISTS ngos (
@@ -38,7 +58,7 @@ def init_db():
             auto_verified INTEGER DEFAULT 0
         )
     ''')
-    
+
     # Volunteers table
     conn.execute('''
         CREATE TABLE IF NOT EXISTS volunteers (
@@ -53,7 +73,7 @@ def init_db():
             last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
+
     # Food requests table
     conn.execute('''
         CREATE TABLE IF NOT EXISTS food_requests (
@@ -72,7 +92,33 @@ def init_db():
             spice_level TEXT
         )
     ''')
-    
+
+    conn.commit()
+    conn.close()
+
+
+def init_volunteer_db():
+    """
+    Initialize the volunteer database with volunteers table.
+    """
+    conn = get_volunteer_db_connection()
+
+    # Volunteers table with updated schema
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS volunteers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            firebase_uid TEXT UNIQUE,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            phone TEXT,
+            availability TEXT,
+            verified INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            average_rating REAL DEFAULT 0,
+            total_ratings INTEGER DEFAULT 0
+        )
+    ''')
+
     conn.commit()
     conn.close()
 

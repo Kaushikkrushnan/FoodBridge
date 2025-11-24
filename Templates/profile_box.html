@@ -1,0 +1,231 @@
+<!-- Profile Box Component -->
+<div id="profile-box" class="profile-box">
+    <div class="profile-header" onclick="toggleProfileMenu()">
+        <div class="profile-avatar">
+            <span id="profile-initial">{% if user_name and user_name|length > 0 %}{{ user_name[0].upper() }}{% else %}U{% endif %}</span>
+        </div>
+        <div class="profile-name">
+            <span id="profile-display-name">{{ user_name or 'User' }}</span>
+            <span class="profile-role">{{ user_role or 'Member' }}</span>
+        </div>
+        <svg class="profile-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+    <div id="profile-menu" class="profile-menu" style="display: none;">
+        <div class="profile-menu-section">
+            <div class="profile-menu-item">
+                <strong>Email:</strong> <span id="profile-email">{{ user_email or 'N/A' }}</span>
+            </div>
+            {% if user_registration %}
+            <div class="profile-menu-item">
+                <strong>Registration:</strong> <span id="profile-registration">{{ user_registration }}</span>
+            </div>
+            {% endif %}
+            {% if user_verified is defined %}
+            <div class="profile-menu-item">
+                <strong>Status:</strong> 
+                <span class="status-badge {{ 'status-verified' if user_verified else 'status-pending' }}">
+                    {{ 'Verified' if user_verified else 'Pending Verification' }}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+        <div class="profile-menu-divider"></div>
+        <div class="profile-menu-section">
+            {% if user_role == 'NGO' %}
+            <a href="{{ url_for('dashboard.ngo_dashboard') }}" class="profile-menu-link">NGO Dashboard</a>
+            <a href="{{ url_for('dashboard.ngo_my_accepted_donations') }}" class="profile-menu-link">My Accepted Donations</a>
+            {% elif user_role == 'Donor' %}
+            <a href="{{ url_for('dashboard.donor_dashboard') }}" class="profile-menu-link">Donor Dashboard</a>
+            <a href="{{ url_for('dashboard.donor_my_accepted_ngos') }}" class="profile-menu-link">My Accepted NGOs</a>
+            {% endif %}
+            <a href="{{ url_for('dashboard.progress') }}" class="profile-menu-link">Progress Tracking</a>
+        </div>
+        <div class="profile-menu-divider"></div>
+        <div class="profile-menu-section">
+            <a href="{{ url_for('auth.logout') }}" class="profile-menu-link logout-link">Logout</a>
+        </div>
+    </div>
+</div>
+
+<style>
+.profile-box {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 250px;
+    font-family: 'Inter', sans-serif;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-radius: 12px 12px 0 0;
+}
+
+.profile-header:hover {
+    background-color: #f3f4f6;
+}
+
+.profile-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 18px;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+
+.profile-name {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-name > span:first-child {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 14px;
+}
+
+.profile-role {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+.profile-arrow {
+    color: #6b7280;
+    transition: transform 0.2s;
+    margin-left: 8px;
+}
+
+.profile-box.active .profile-arrow {
+    transform: rotate(180deg);
+}
+
+.profile-menu {
+    border-top: 1px solid #e5e7eb;
+    padding: 8px 0;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.profile-menu-section {
+    padding: 4px 0;
+}
+
+.profile-menu-item {
+    padding: 10px 16px;
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.5;
+}
+
+.profile-menu-item strong {
+    color: #1f2937;
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.profile-menu-link {
+    display: block;
+    padding: 10px 16px;
+    color: #374151;
+    text-decoration: none;
+    transition: background-color 0.2s;
+    font-size: 14px;
+}
+
+.profile-menu-link:hover {
+    background-color: #f3f4f6;
+    color: #1f2937;
+}
+
+.profile-menu-link.logout-link {
+    color: #dc2626;
+    font-weight: 500;
+}
+
+.profile-menu-link.logout-link:hover {
+    background-color: #fee2e2;
+}
+
+.profile-menu-divider {
+    height: 1px;
+    background-color: #e5e7eb;
+    margin: 8px 0;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+.status-verified {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-pending {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+@media (max-width: 768px) {
+    .profile-box {
+        top: 10px;
+        right: 10px;
+        min-width: 200px;
+    }
+}
+</style>
+
+<script>
+function toggleProfileMenu() {
+    const profileBox = document.getElementById('profile-box');
+    const profileMenu = document.getElementById('profile-menu');
+    const isActive = profileBox.classList.contains('active');
+    
+    if (isActive) {
+        profileBox.classList.remove('active');
+        profileMenu.style.display = 'none';
+    } else {
+        profileBox.classList.add('active');
+        profileMenu.style.display = 'block';
+    }
+}
+
+// Logout is handled by the link directly
+
+// Close profile menu when clicking outside
+document.addEventListener('click', function(event) {
+    const profileBox = document.getElementById('profile-box');
+    if (profileBox && !profileBox.contains(event.target)) {
+        profileBox.classList.remove('active');
+        document.getElementById('profile-menu').style.display = 'none';
+    }
+});
+</script>
+
