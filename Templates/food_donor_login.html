@@ -1,57 +1,228 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Food Donor Login</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Food Donor Login - FoodBridge</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" />
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --success: #10b981;
+            --error: #ef4444;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+        
+        .form-header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            padding: 2rem;
+            text-align: center;
+            color: white;
+        }
+        
+        .form-header h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-header p {
+            opacity: 0.9;
+        }
+        
+        .form-body {
+            padding: 2rem;
+        }
+        
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        
+        .input-icon-wrapper {
+            position: relative;
+        }
+        
+        .input-icon-wrapper span {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.25rem;
+        }
+        
+        .input-icon-wrapper input {
+            padding-left: 3rem;
+        }
+        
+        .btn-login {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -10px rgba(79, 70, 229, 0.5);
+        }
+        
+        .register-link {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: #6b7280;
+        }
+        
+        .register-link a {
+            color: var(--primary);
+            font-weight: 600;
+            text-decoration: none;
+        }
+        
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .message {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        
+        .message.error {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        
+        .message.success {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        
+        .logged-in-badge {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: #10b981;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .back-home {
+            display: inline-block;
+            margin-top: 1rem;
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+        
+        .back-home:hover {
+            color: var(--primary);
+        }
+    </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  {% if session.get('user_contact') %}
-    <div class="food-donor-login-key" style="position: fixed; top: 10px; right: 10px; z-index: 1000; background-color: #4f46e5; color: white; padding: 8px 12px; border-radius: 6px; font-weight: bold;">Logged in as: {{ session['user_contact'] }}</div>
-  {% endif %}
-  <div class="bg-white p-8 rounded shadow-md w-full max-w-md">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            <div class="mb-4">
-              {% for category, message in messages %}
+<body class="flex items-center justify-center p-4">
+    {% if session.get('user_contact') %}
+    <div class="logged-in-badge">
+        ✓ Logged in as: {{ session['user_contact'] }}
+    </div>
+    {% endif %}
+    
+    <div class="login-card w-full max-w-md">
+        <div class="form-header">
+            <div class="text-4xl mb-3">🍽️</div>
+            <h1>Food Donor Login</h1>
+            <p>Welcome back to FoodBridge</p>
+        </div>
+        
+        <div class="form-body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
                 <div class="message {{ category }}">{{ message }}</div>
-              {% endfor %}
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+            
+            <form method="POST" action="{{ url_for('auth.food_donor_login') }}">
+                <div class="input-group">
+                    <label for="name">Organization / Your Name</label>
+                    <div class="input-icon-wrapper">
+                        <span>👤</span>
+                        <input type="text" name="name" id="name" required 
+                            placeholder="Enter your registered name" />
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="phone">Phone Number</label>
+                    <div class="input-icon-wrapper">
+                        <span>📱</span>
+                        <input type="tel" name="phone" id="phone" required 
+                            placeholder="Enter your registered phone" />
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-login">
+                    🔓 Login
+                </button>
+            </form>
+            
+            <div class="register-link">
+                Don't have an account?
+                <a href="{{ url_for('auth.food_donor_register') }}">Register here</a>
             </div>
-          {% endif %}
-        {% endwith %}
-    <h1 class="text-2xl font-bold mb-6 text-center">Food Donor Login</h1>
-    <form method="POST" action="{{ url_for('auth.food_donor_login') }}">
-      <div class="mb-4">
-        <label for="name" class="block text-gray-700 mb-2">Name</label>
-        <input
-          type="text"
-          name="name"
-          id="name"
-          required
-          class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-500"
-        />
-      </div>
-      <div class="mb-6">
-        <label for="phone" class="block text-gray-700 mb-2">Phone Number</label>
-        <input
-          type="text"
-          name="phone"
-          id="phone"
-          required
-          class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-500"
-        />
-      </div>
-      <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition">Login</button>
-    </form>
-    <p class="mt-4 text-center text-gray-600">
-      Don't have an account?
-      <a href="{{ url_for('auth.food_donor_register') }}" class="text-indigo-600 hover:underline"
-        >Register here</a
-      >.
-    </p>
-    <div id="message" class="mt-4 text-center text-red-600"></div>
-  </div>
+            
+            <div style="text-align: center;">
+                <a href="{{ url_for('index') }}" class="back-home">← Back to Home</a>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
