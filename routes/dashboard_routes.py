@@ -483,7 +483,7 @@ def volunteer_dashboard():
     assigned_requests_dict = [dict(row) for row in assigned_requests]
     completed_deliveries_dict = [dict(row) for row in completed_deliveries]
 
-    return render_template('volunteer_dashboard.html',
+    return render_template('volunteers/volunteer_dashboard.html',
                          assigned_requests=assigned_requests_dict,
                          completed_deliveries=completed_deliveries_dict,
                          **user_info)
