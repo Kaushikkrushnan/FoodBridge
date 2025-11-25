@@ -63,12 +63,6 @@ def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
-@app.route('/live_tracking')
-def live_tracking():
-    """Render the live tracking page"""
-    return render_template('live_tracking.html')
-
-
 @app.route('/init_db')
 def init_db_route():
     """Manually initialize the database"""
