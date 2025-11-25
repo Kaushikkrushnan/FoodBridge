@@ -143,7 +143,7 @@ def donor_dashboard():
     auth_conn.close()
     app_conn.close()
 
-    return render_template('donor_dashboard.html', 
+    return render_template('Donor_dashboard.html', 
                          available_ngos=available_ngos, 
                          requested_ngos=requested_ngos, 
                          accepted_ngos=accepted_ngos,
@@ -355,22 +355,26 @@ def progress():
         SELECT * FROM food_donor_requests WHERE status = 'delivered' ORDER BY id DESC
     """).fetchall()
 
-    # Get unique NGOs involved in these requests
+    # Get unique NGOs involved in these requests - from app.db
     ngo_ids = list(set(req['ngo_id'] for req in assigned_requests + collected_requests + in_transit_requests + delivered_requests if req['ngo_id']))
     ngos = []
     if ngo_ids:
+        app_conn = get_db_connection()
         placeholders = ','.join('?' * len(ngo_ids))
-        ngos = conn.execute(f'''
-            SELECT id, name, email, address
+        ngos = app_conn.execute(f'''
+            SELECT id, name, email
             FROM ngos
             WHERE id IN ({placeholders})
             ORDER BY name
         ''', ngo_ids).fetchall()
+        app_conn.close()
 
-    # Get all volunteers for admin view
-    volunteers = conn.execute('''
+    # Get all volunteers for admin view - from app.db
+    app_conn = get_db_connection()
+    volunteers = app_conn.execute('''
         SELECT * FROM volunteers ORDER BY name
     ''').fetchall()
+    app_conn.close()
 
     # Get all food donors (from food_donor_requests table)
     donors = conn.execute('''

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Volunteer Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .status-assigned {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .status-collected {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .status-in_transit {
+            background: #fce7f3;
+            color: #9d174d;
+        }
+        .status-delivered {
+            background: #d1fae5;
+            color: #065f46;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Top-right user info display -->
+    <div style="position: absolute; top: 10px; right: 20px;">
+        {% if user_name %}
+            Logged in as: {{ user_name }} ({{ user_role }})
+        {% endif %}
+    </div>
+
+    <div class="container mx-auto py-8 px-4">
+        <h1 class="text-4xl font-bold mb-8 text-center text-gray-800">Volunteer Dashboard</h1>
+
+        <!-- Navigation -->
+        <div class="flex justify-center mb-8">
+            <a href="/" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-300 mr-4">Home</a>
+            <a href="/progress" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition duration-300">Progress Tracking</a>
+        </div>
+
+        <!-- Assigned Requests -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">Active Assignments</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% if assigned_requests %}
+                    {% for request in assigned_requests %}
+                    <div class="bg-white rounded-lg shadow-lg p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">{{ request.donor_name }}</h3>
+                            <span class="status-badge status-{{ request.status }}">{{ request.status | capitalize }}</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <p><strong>Food Type:</strong> {{ request.food_type }}</p>
+                            <p><strong>Quantity:</strong> {{ request.quantity }}</p>
+                            <p><strong>Pickup Location:</strong> {{ request.pickup_location }}</p>
+                            <p><strong>Pickup Time:</strong> {{ request.pickup_time }}</p>
+                            {% if request.ngo_name %}
+                            <p><strong>Deliver to:</strong> {{ request.ngo_name }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="mt-4 flex gap-2">
+                            <button class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 text-sm"
+                                onclick="updateStatus({{ request.id }}, 'collected')">Mark Collected</button>
+                            <button class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm"
+                                onclick="updateStatus({{ request.id }}, 'in_transit')">In Transit</button>
+                            <button class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 text-sm"
+                                onclick="updateStatus({{ request.id }}, 'delivered')">Delivered</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-gray-500 text-lg">No active assignments at the moment.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Completed Deliveries -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">Completed Deliveries</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% if completed_deliveries %}
+                    {% for delivery in completed_deliveries %}
+                    <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-green-500">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">{{ delivery.donor_name }}</h3>
+                            <span class="status-badge status-delivered">Delivered ✓</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <p><strong>Food Type:</strong> {{ delivery.food_type }}</p>
+                            <p><strong>Quantity:</strong> {{ delivery.quantity }}</p>
+                            {% if delivery.ngo_name %}
+                            <p><strong>Delivered to:</strong> {{ delivery.ngo_name }}</p>
+                            {% endif %}
+                            {% if delivery.completed_at %}
+                            <p><strong>Completed:</strong> {{ delivery.completed_at }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-gray-500 text-lg">No completed deliveries yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateStatus(requestId, status) {
+            fetch('/update_request_status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    request_id: requestId,
+                    status: status
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Status updated successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to update status');
+            });
+        }
+    </script>
+</body>
+</html>
