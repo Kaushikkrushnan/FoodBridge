@@ -18,35 +18,37 @@
             <h2 class="text-2xl font-semibold mb-4">Transport Volunteers</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {% for request in assigned_requests %}
-                <div class="volunteer-card {% if request.status == 'assigned' %}active{% endif %}">
+                <div class="volunteer-card {% if request.status == 'assigned' %}active{% endif %} bg-gray-50 p-4 rounded-lg border">
                     <div class="flex justify-between items-start mb-2">
                         <h4 class="font-semibold text-gray-800">{{ request.volunteer_name or 'Unassigned' }}</h4>
-                        <span class="status-badge status-{{ request.status }}">
-                            {{ request.status.replace('_', ' ').title() }}
+                        <span class="status-badge status-{{ request.status }} px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                            {{ request.status.replace('_', ' ').title() if request.status else 'Pending' }}
                         </span>
                     </div>
                     <p class="text-sm text-gray-600 mb-1"><strong>Vehicle:</strong> Bike/Car</p>
                     <p class="text-sm text-gray-600 mb-1"><strong>Contact:</strong> +91 98765 43210</p>
-                    <p class="text-sm text-gray-600 mb-1"><strong>Current Task:</strong> {{ request.donor_name }} → NGO</p>
+                    <p class="text-sm text-gray-600 mb-1"><strong>Current Task:</strong> {{ request.food_donor_name or 'N/A' }} → NGO</p>
                     {% if request.status == 'assigned' %}
-                    <p class="text-sm text-blue-600"><strong>ETA to Pickup:</strong> {{ request.eta_minutes }} min</p>
+                    <p class="text-sm text-blue-600"><strong>ETA to Pickup:</strong> {{ request.eta_minutes or 15 }} min</p>
                     {% endif %}
                 </div>
                 {% endfor %}
+                {% if not assigned_requests %}
+                <p class="text-gray-500 col-span-full">No active volunteers currently.</p>
+                {% endif %}
             </div>
         </div>
         <!-- Progress Status Sections -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <!-- Ready to be collected -->
             <section class="bg-white rounded-lg shadow-lg p-4">
-                <h3 class="text-xl font-semibold mb-4">Ready to be Collected (Assigned)</h3>
+                <h3 class="text-xl font-semibold mb-4 text-blue-600">Ready to be Collected</h3>
                 {% if assigned_requests %}
                     <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
                     {% for req in assigned_requests %}
                         <li class="py-2">
-                            <p><strong>Donor:</strong> {{ req.donor_name }}</p>
-                            <p><strong>Food:</strong> {{ req.food_type }} - {{ req.quantity }}</p>
-                            <p><strong>Pickup Location:</strong> {{ req.pickup_location }}</p>
+                            <p><strong>Donor:</strong> {{ req.food_donor_name or 'N/A' }}</p>
+                            <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
                             <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'Not assigned' }}</p>
                         </li>
                     {% endfor %}
@@ -57,15 +59,14 @@
             </section>
             <!-- Collected by Volunteer -->
             <section class="bg-white rounded-lg shadow-lg p-4">
-                <h3 class="text-xl font-semibold mb-4">Collected by Volunteer</h3>
+                <h3 class="text-xl font-semibold mb-4 text-yellow-600">Collected by Volunteer</h3>
                 {% if collected_requests %}
                     <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
                     {% for req in collected_requests %}
                         <li class="py-2">
-                            <p><strong>Donor:</strong> {{ req.donor_name }}</p>
-                            <p><strong>Food:</strong> {{ req.food_type }} - {{ req.quantity }}</p>
-                            <p><strong>Pickup Location:</strong> {{ req.pickup_location }}</p>
-                            <p><strong>Volunteer:</strong> {{ req.volunteer_name }}</p>
+                            <p><strong>Donor:</strong> {{ req.food_donor_name or 'N/A' }}</p>
+                            <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
+                            <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'N/A' }}</p>
                         </li>
                     {% endfor %}
                     </ul>
@@ -73,24 +74,16 @@
                     <p class="text-gray-600">No collected requests currently.</p>
                 {% endif %}
             </section>
-            <!-- ...existing code... -->
-        </div>
-    </div>
-{% endblock %}
-            </section>
-
             <!-- In Transit to NGO -->
             <section class="bg-white rounded-lg shadow-lg p-4">
-                <h3 class="text-xl font-semibold mb-4">In Transit to NGO</h3>
+                <h3 class="text-xl font-semibold mb-4 text-green-600">In Transit to NGO</h3>
                 {% if in_transit_requests %}
                     <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
                     {% for req in in_transit_requests %}
                         <li class="py-2">
-                            <p><strong>Donor:</strong> {{ req.donor_name }}</p>
-                            <p><strong>Food:</strong> {{ req.food_type }} - {{ req.quantity }}</p>
-                            <p><strong>Pickup Location:</strong> {{ req.pickup_location }}</p>
-                            <p><strong>Volunteer:</strong> {{ req.volunteer_name }}</p>
-                            <p><strong>NGO:</strong> {{ req.ngo_name or 'Not assigned' }}</p>
+                            <p><strong>Donor:</strong> {{ req.food_donor_name or 'N/A' }}</p>
+                            <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
+                            <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'N/A' }}</p>
                         </li>
                     {% endfor %}
                     </ul>
@@ -98,19 +91,16 @@
                     <p class="text-gray-600">No items currently in transit.</p>
                 {% endif %}
             </section>
-
             <!-- Delivered to NGO -->
             <section class="bg-white rounded-lg shadow-lg p-4">
-                <h3 class="text-xl font-semibold mb-4">Delivered to NGO</h3>
+                <h3 class="text-xl font-semibold mb-4 text-gray-600">Delivered to NGO</h3>
                 {% if delivered_requests %}
                     <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
                     {% for req in delivered_requests %}
                         <li class="py-2">
-                            <p><strong>Donor:</strong> {{ req.donor_name }}</p>
-                            <p><strong>Food:</strong> {{ req.food_type }} - {{ req.quantity }}</p>
-                            <p><strong>Pickup Location:</strong> {{ req.pickup_location }}</p>
-                            <p><strong>Volunteer:</strong> {{ req.volunteer_name }}</p>
-                            <p><strong>NGO:</strong> {{ req.ngo_name or 'Not assigned' }}</p>
+                            <p><strong>Donor:</strong> {{ req.food_donor_name or 'N/A' }}</p>
+                            <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
+                            <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'N/A' }}</p>
                         </li>
                     {% endfor %}
                     </ul>
@@ -120,37 +110,10 @@
             </section>
         </div>
 
-        <!-- Main Content Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <!-- Food Donor Details Box -->
-            <div class="info-box">
-                <h3 class="text-xl font-semibold mb-4 text-gray-800">Food Donor Details</h3>
-                <div class="space-y-3">
-                    {% for request in requests %}
-                    <div class="border-b border-gray-200 pb-3 last:border-b-0">
-                        <h4 class="font-medium text-gray-800">{{ request.donor_name }}</h4>
-                        <p class="text-sm text-gray-600"><strong>Food:</strong> {{ request.food_type }}</p>
-                        <p class="text-sm text-gray-600"><strong>Quantity:</strong> {{ request.quantity }}</p>
-                        <p class="text-sm text-gray-600"><strong>Location:</strong> {{ request.pickup_location }}</p>
-                        <p class="text-sm text-gray-600"><strong>Status:</strong>
-                            <span class="status-badge status-{{ request.status }}">
-                                {{ request.status.replace('_', ' ').title() }}
-                            </span>
-                        </p>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- Map Section (Center) -->
-            <div class="lg:col-span-2 info-box">
-                <h3 class="text-xl font-semibold mb-4 text-gray-800">Live Map Tracking</h3>
-                <div id="map"></div>
-                <p class="text-sm text-gray-500 mt-2">Map updates automatically every 30 seconds</p>
-            </div>
-
+        <!-- NGO Details and Volunteers Summary -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <!-- NGO Details Box -->
-            <div class="info-box">
+            <div class="bg-white rounded-lg shadow-lg p-6">
                 <h3 class="text-xl font-semibold mb-4 text-gray-800">NGO Details</h3>
                 <div class="space-y-3">
                     {% if ngos %}
@@ -158,12 +121,6 @@
                         <div class="border-b border-gray-200 pb-3 last:border-b-0">
                             <h4 class="font-medium text-gray-800">{{ ngo.name }}</h4>
                             <p class="text-sm text-gray-600"><strong>Email:</strong> {{ ngo.email }}</p>
-                            {% if ngo.address %}
-                            <p class="text-sm text-gray-600"><strong>Address:</strong> {{ ngo.address }}</p>
-                            {% endif %}
-                            {% if ngo.lat and ngo.lon %}
-                            <p class="text-sm text-gray-600"><strong>Location:</strong> {{ ngo.lat|round(4) }}, {{ ngo.lon|round(4) }}</p>
-                            {% endif %}
                         </div>
                         {% endfor %}
                     {% else %}
@@ -171,225 +128,47 @@
                     {% endif %}
                 </div>
             </div>
+            
+            <!-- Volunteers Summary -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">Available Volunteers</h3>
+                <div class="space-y-3">
+                    {% if volunteers %}
+                        {% for vol in volunteers %}
+                        <div class="border-b border-gray-200 pb-3 last:border-b-0">
+                            <h4 class="font-medium text-gray-800">{{ vol.name }}</h4>
+                            <p class="text-sm text-gray-600"><strong>Contact:</strong> {{ vol.contact or 'N/A' }}</p>
+                            <p class="text-sm text-gray-600"><strong>Available:</strong> {{ vol.available_from or '08:00' }} - {{ vol.available_to or '20:00' }}</p>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-sm text-gray-500">No volunteers currently available.</p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
 
         <!-- Status Legend -->
-        <div class="bg-white rounded-lg shadow-lg p-6 mt-8">
+        <div class="bg-white rounded-lg shadow-lg p-6">
             <h3 class="text-xl font-semibold mb-4">Status Legend</h3>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="flex items-center">
-                    <span class="status-badge status-assigned mr-2">Assigned</span>
-                    <span class="text-sm">Volunteer assigned to pickup</span>
+                    <span class="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 mr-2">Pending</span>
+                    <span class="text-sm">Waiting for collection</span>
                 </div>
                 <div class="flex items-center">
-                    <span class="status-badge status-collected mr-2">Collected</span>
-                    <span class="text-sm">Food collected from food donor</span>
+                    <span class="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800 mr-2">Accepted</span>
+                    <span class="text-sm">NGO accepted donation</span>
                 </div>
                 <div class="flex items-center">
-                    <span class="status-badge status-in_transit mr-2">In Transit</span>
+                    <span class="px-2 py-1 rounded text-xs bg-green-100 text-green-800 mr-2">In Transit</span>
                     <span class="text-sm">On the way to NGO</span>
                 </div>
                 <div class="flex items-center">
-                    <span class="status-badge status-delivered mr-2">Delivered</span>
+                    <span class="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800 mr-2">Delivered</span>
                     <span class="text-sm">Successfully delivered</span>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // Prepare data lists combined from all four request categories
-        const assignedRequests = JSON.parse('{{ assigned_requests|tojson|safe }}');
-        const collectedRequests = JSON.parse('{{ collected_requests|tojson|safe }}');
-        const inTransitRequests = JSON.parse('{{ in_transit_requests|tojson|safe }}');
-        const deliveredRequests = JSON.parse('{{ delivered_requests|tojson|safe }}');
-
-        // Combine all requests into one array for mapping
-        const allRequests = [...assignedRequests, ...collectedRequests, ...inTransitRequests, ...deliveredRequests];
-
-        // Initialize map centered on Chennai
-        const map = L.map('map').setView([13.0827, 80.2707], 12);
-
-        // Add OpenStreetMap tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        // Icons for different statuses
-        const icons = {
-            assigned: L.icon({
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                iconSize: [25, 41],
-                iconAnchor: [12, 41],
-                popupAnchor: [1, -34],
-                shadowSize: [41, 41]
-            }),
-            collected: L.icon({
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png',
-                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                iconSize: [25, 41],
-                iconAnchor: [12, 41],
-                popupAnchor: [1, -34],
-                shadowSize: [41, 41]
-            }),
-            in_transit: L.icon({
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                iconSize: [25, 41],
-                iconAnchor: [12, 41],
-                popupAnchor: [1, -34],
-                shadowSize: [41, 41]
-            }),
-            delivered: L.icon({
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
-                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                iconSize: [25, 41],
-                iconAnchor: [12, 41],
-                popupAnchor: [1, -34],
-                shadowSize: [41, 41]
-            })
-        };
-
-        // Add markers for each request - Donor, Volunteer, NGO
-        allRequests.forEach(request => {
-            // Donor pickup marker
-            if (request.pickup_lat && request.pickup_lon) {
-                const donorMarker = L.marker([request.pickup_lat, request.pickup_lon], {
-                    icon: icons[request.status] || icons.assigned
-                }).addTo(map);
-
-                let donorPopup = `
-                    <div class="text-sm">
-                        <h4 class="font-bold">🏪 ${request.donor_name} (Food Donor)</h4>
-                        <p><strong>Food:</strong> ${request.food_type}</p>
-                        <p><strong>Quantity:</strong> ${request.quantity}</p>
-                        <p><strong>Status:</strong> ${request.status.replace('_', ' ').toUpperCase()}</p>
-                        <p><strong>Volunteer:</strong> ${request.volunteer_name || 'Not assigned'}</p>
-                `;
-
-                if (request.status === 'assigned') {
-                    donorPopup += `<p><strong>ETA to Pickup:</strong> ${request.eta_minutes} minutes</p>`;
-                }
-
-                donorPopup += `</div>`;
-                donorMarker.bindPopup(donorPopup);
-            }
-
-            // Volunteer marker
-            if (request.volunteer_lat && request.volunteer_lon) {
-                let volLat = request.volunteer_lat;
-                let volLon = request.volunteer_lon;
-
-                // Simulate slight movement for in_transit status
-                if (request.status === 'in_transit') {
-                    volLat += (Math.random() - 0.5) * 0.001;
-                    volLon += (Math.random() - 0.5) * 0.001;
-                }
-
-                const volunteerMarker = L.marker([volLat, volLon], {
-                    icon: L.icon({
-                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                        iconSize: [25, 41],
-                        iconAnchor: [12, 41],
-                        popupAnchor: [1, -34],
-                        shadowSize: [41, 41]
-                    })
-                }).addTo(map);
-
-                volunteerMarker.bindPopup(`
-                    <div class="text-sm">
-                        <h4 class="font-bold">🚴 ${request.volunteer_name} (Volunteer)</h4>
-                        <p><strong>Status:</strong> ${request.status.replace('_', ' ').toUpperCase()}</p>
-                        <p><strong>Task:</strong> ${request.donor_name} → ${request.ngo_name || 'NGO'}</p>
-                        <p><strong>Rating:</strong> ${request.average_rating ? request.average_rating.toFixed(1) : 'N/A'} ⭐</p>
-                    </div>
-                `);
-            }
-
-            // NGO destination marker
-            if (request.ngo_lat && request.ngo_lon) {
-                const ngoMarker = L.marker([request.ngo_lat, request.ngo_lon], {
-                    icon: L.icon({
-                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-violet.png',
-                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                        iconSize: [25, 41],
-                        iconAnchor: [12, 41],
-                        popupAnchor: [1, -34],
-                        shadowSize: [41, 41]
-                    })
-                }).addTo(map);
-
-                ngoMarker.bindPopup(`
-                    <div class="text-sm">
-                        <h4 class="font-bold">🏢 ${request.ngo_name || 'NGO'} (Destination)</h4>
-                        <p><strong>Address:</strong> ${request.ngo_address || 'Not specified'}</p>
-                        <p><strong>Receiving:</strong> ${request.food_type} from ${request.donor_name}</p>
-                        ${request.status === 'in_transit' ? `<p><strong>ETA:</strong> ${request.eta_minutes} minutes</p>` : ''}
-                    </div>
-                `);
-            }
-        });
-
-        // Function to update volunteer locations periodically
-        let volunteerMarkers = [];
-
-        function updateVolunteerLocations() {
-            // Remove old volunteer markers
-            volunteerMarkers.forEach(marker => map.removeLayer(marker));
-            volunteerMarkers = [];
-
-            // Add new volunteer markers with slight movement
-            allRequests.forEach(request => {
-                if (request.volunteer_lat && request.volunteer_lon) {
-                    let lat = request.volunteer_lat;
-                    let lon = request.volunteer_lon;
-
-                    if (request.status === 'in_transit') {
-                        lat += (Math.random() - 0.5) * 0.001;
-                        lon += (Math.random() - 0.5) * 0.001;
-                    }
-
-                    const volunteerMarker = L.marker([lat, lon], {
-                        icon: L.icon({
-                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-                            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                            iconSize: [25, 41],
-                            iconAnchor: [12, 41],
-                            popupAnchor: [1, -34],
-                            shadowSize: [41, 41]
-                        })
-                    }).addTo(map);
-
-                    volunteerMarker.bindPopup(`
-                        <div class="text-sm">
-                            <h4 class="font-bold">🚴 ${request.volunteer_name} (Volunteer)</h4>
-                            <p><strong>Status:</strong> ${request.status.replace('_', ' ').toUpperCase()}</p>
-                            <p><strong>Task:</strong> ${request.donor_name} → ${request.ngo_name || 'NGO'}</p>
-                            <p><strong>Rating:</strong> ${request.average_rating ? request.average_rating.toFixed(1) : 'N/A'} ⭐</p>
-                        </div>
-                    `);
-
-                    volunteerMarkers.push(volunteerMarker);
-                }
-            });
-        }
-
-        // Initial volunteer marker update
-        updateVolunteerLocations();
-
-        // Update volunteer locations every 30 seconds
-        setInterval(updateVolunteerLocations, 30000);
-
-        // Fit map bounds to show all donor pickup points
-        const donorMarkers = allRequests.map(r => L.marker([r.pickup_lat, r.pickup_lon]));
-        if(donorMarkers.length > 0){
-            const group = new L.featureGroup(donorMarkers);
-            map.fitBounds(group.getBounds().pad(0.1));
-        }
-    </script>
-</body>
-</html>
+{% endblock %}

@@ -7,36 +7,67 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        .food-donor-login-key {
+        .user-info-box {
             position: fixed;
             top: 10px;
             right: 10px;
             z-index: 1000;
             background-color: #4f46e5;
             color: white;
-            padding: 8px 12px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+            max-width: 280px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .user-info-box .user-type {
+            font-size: 12px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .user-info-box .user-name {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .user-info-box .user-contact {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+        .logout-btn {
+            position: fixed;
+            top: 85px;
+            right: 10px;
+            z-index: 1000;
+            background-color: #e53e3e;
+            color: white;
+            padding: 8px 15px;
             border-radius: 6px;
             font-weight: bold;
             text-decoration: none;
             font-family: Arial, sans-serif;
         }
-        .food-donor-login-key:hover {
-            background-color: #4338ca;
+        .logout-btn:hover {
+            background-color: #c53030;
         }
     </style>
     {% block head %}{% endblock %}
 </head>
 <body>
     <!-- Top-right user info display for any logged-in user -->
-    {% if user_name and user_email and db_session_id %}
-    <div class="food-donor-login-key">
-        Logged in as: <span class="font-bold">{{ user_name }}</span><br>
-        Email: <span>{{ user_email }}</span><br>
-        Session ID: <span>{{ db_session_id }}</span>
+    {% if is_logged_in or user_session_key %}
+    <div class="user-info-box">
+        <div class="user-type">{{ user_role or user_type or 'User' }}</div>
+        <div class="user-name">{{ user_name }}</div>
+        {% if user_email %}
+        <div class="user-contact">📧 {{ user_email }}</div>
+        {% endif %}
+        {% if user_phone %}
+        <div class="user-contact">📱 {{ user_phone }}</div>
+        {% endif %}
     </div>
-    <div style="position: fixed; top: 70px; right: 10px; z-index: 1000;">
-        <a href="{{ url_for('auth.logout') }}" class="food-donor-login-key" style="background-color: #e53e3e; color: white;">Logout</a>
-    </div>
+    <a href="{{ url_for('auth.logout') }}" class="logout-btn">Logout</a>
     {% endif %}
     {% block content %}{% endblock %}
 </body>
