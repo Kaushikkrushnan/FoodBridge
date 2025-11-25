@@ -80,4 +80,9 @@ def init_db_route():
         return "Error initializing database: " + str(e)
 
 if __name__ == '__main__':
+    # Initialize all databases on startup
+    from db import init_all_databases
+    print("Initializing databases...")
+    init_all_databases()
+    print("Databases initialized successfully!")
     app.run(debug=True, host='0.0.0.0', port=5001)
