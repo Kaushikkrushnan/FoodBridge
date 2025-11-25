@@ -10,18 +10,22 @@
                     {% for donation in available_donations %}
                     <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
                          data-id="{{ donation.id }}"
+                         data-donor-name="{{ donation.food_donor_name or donation.donor_name or '' }}"
+                         data-food-type="{{ donation.food_type or '' }}"
+                         data-quantity="{{ donation.quantity or '' }}"
+                         data-pickup-location="{{ donation.pickup_location or '' }}"
+                         data-pickup-time="{{ donation.pickup_time or '' }}"
                          data-cuisine="{{ donation.cuisine_type or '' }}"
                          data-spice="{{ donation.spice_level or '' }}"
-                         data-spec="{{ donation.food_category or '' }}"
-                         data-search="{{ donation.donor_name|lower }} {{ donation.food_type|lower }}">
-                        <h3 class="text-2xl font-semibold mb-2">{{ donation.donor_name or 'Anonymous' }}</h3>
+                         data-spec="{{ donation.food_category or '' }}">
+                        <h3 class="text-2xl font-semibold mb-2">{{ donation.food_donor_name or donation.donor_name or 'Anonymous' }}</h3>
                         <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
                         <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
                         <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
                         <p><strong>Pickup Time:</strong> {{ donation.pickup_time or 'N/A' }}</p>
                         <span class="status-badge status-available">Available</span>
                         <div class="mt-4">
-                            <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="openRequestModal({{ donation.id }})">Review & Accept</button>
+                            <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="acceptDonationBackend({{ donation.id }})">Review & Accept</button>
                         </div>
                     </div>
                     {% endfor %}
@@ -39,11 +43,15 @@
                     {% for donation in accepted_donations %}
                     <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
                          data-id="{{ donation.id }}"
+                         data-donor-name="{{ donation.food_donor_name or donation.donor_name or '' }}"
+                         data-food-type="{{ donation.food_type or '' }}"
+                         data-quantity="{{ donation.quantity or '' }}"
+                         data-pickup-location="{{ donation.pickup_location or '' }}"
+                         data-pickup-time="{{ donation.pickup_time or '' }}"
                          data-cuisine="{{ donation.cuisine_type or '' }}"
                          data-spice="{{ donation.spice_level or '' }}"
-                         data-spec="{{ donation.food_category or '' }}"
-                         data-search="{{ donation.donor_name|lower }} {{ donation.food_type|lower }}">
-                        <h3 class="text-2xl font-semibold mb-2">{{ donation.donor_name or 'Anonymous' }}</h3>
+                         data-spec="{{ donation.food_category or '' }}">
+                        <h3 class="text-2xl font-semibold mb-2">{{ donation.food_donor_name or donation.donor_name or 'Anonymous' }}</h3>
                         <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
                         <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
                         <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
@@ -62,7 +70,7 @@
             </div>
         </div>
         <!-- Request Details Modal -->
-        <div id="request-modal" class="modal">
+        <div id="request-modal" class="modal" style="display:none;">
             <div class="modal-content bg-white rounded-lg shadow-2xl">
                 <span class="modal-close absolute top-4 right-5 text-3xl font-bold text-gray-500 hover:text-red-600 cursor-pointer" onclick="closeRequestModal()">&times;</span>
                 <div id="request-modal-body">
@@ -72,9 +80,27 @@
         </div>
     </div>
     <script>
-        // ...existing code...
-    </script>
-{% endblock %}
+        function getDonationFromDom(donationId) {
+            const card = document.querySelector('.donation-card[data-id="' + donationId + '"]');
+            if (!card) return null;
+            return {
+                id: donationId,
+                donor_name: card.dataset.donorName || 'Anonymous',
+                food_type: card.dataset.foodType || 'N/A',
+                quantity: card.dataset.quantity || 'N/A',
+                pickup_location: card.dataset.pickupLocation || 'N/A',
+                pickup_time: card.dataset.pickupTime || 'N/A',
+                food_category: card.dataset.spec || '',
+                spice_level: card.dataset.spice || '',
+                cuisine_type: card.dataset.cuisine || ''
+            };
+        }
+
+        function closeRequestModal() {
+            document.getElementById('request-modal').style.display = 'none';
+        }
+
+        function acceptDonationBackend(requestId) {
             console.log('[DEBUG] acceptDonationBackend called with requestId:', requestId);
             fetch('/ngo_accept_donation', {
                 method: 'POST',
@@ -118,7 +144,7 @@
         }
 
         function viewAcceptedDonation(donationId) {
-            const donation = acceptedDonations.find(d => d.id === donationId);
+            const donation = getDonationFromDom(donationId);
             if (!donation) {
                 console.error('Donation not found');
                 return;
@@ -144,16 +170,15 @@
             };
             modalBody.innerHTML =
                 '<h2 class="text-3xl font-bold mb-4">Accepted Donation Details</h2>' +
-                '<p class="text-lg mb-2"><strong>Donor:</strong> ' + escapeHtml(donation.donor_name || 'Anonymous') + '</p>' +
-                '<p class="text-lg mb-2"><strong>Food Type:</strong> ' + escapeHtml(donation.food_type || 'N/A') + '</p>' +
-                '<p class="text-lg mb-2"><strong>Quantity:</strong> ' + escapeHtml(donation.quantity || 'N/A') + '</p>' +
-                '<p class="text-lg mb-2"><strong>Pickup Location:</strong> ' + escapeHtml(donation.pickup_location || 'N/A') + '</p>' +
-                '<p class="text-lg mb-2"><strong>Pickup Time:</strong> ' + escapeHtml(donation.pickup_time || 'N/A') + '</p>' +
-                '<p class="text-lg mb-2"><strong>Assigned Volunteer:</strong> ' + escapeHtml(donation.volunteer_name || 'N/A') + '</p>' +
+                '<p class="text-lg mb-2"><strong>Donor:</strong> ' + escapeHtml(donation.donor_name) + '</p>' +
+                '<p class="text-lg mb-2"><strong>Food Type:</strong> ' + escapeHtml(donation.food_type) + '</p>' +
+                '<p class="text-lg mb-2"><strong>Quantity:</strong> ' + escapeHtml(donation.quantity) + '</p>' +
+                '<p class="text-lg mb-2"><strong>Pickup Location:</strong> ' + escapeHtml(donation.pickup_location) + '</p>' +
+                '<p class="text-lg mb-2"><strong>Pickup Time:</strong> ' + escapeHtml(donation.pickup_time) + '</p>' +
                 '<p class="text-lg mb-2"><strong>Status:</strong> Accepted</p>' +
                 '<div class="food-icons" style="margin: 1rem 0;">' + (icons || '<span>No special tags</span>') + '</div>' +
                 '<hr class="my-6">' +
-                '<p class="text-center text-green-600 font-semibold">This donation has been accepted and assigned to a volunteer!</p>';
+                '<p class="text-center text-green-600 font-semibold">This donation has been accepted!</p>';
             document.getElementById('request-modal').style.display = 'block';
         }
 
@@ -164,5 +189,4 @@
             }
         }
     </script>
-</body>
-</html>
+{% endblock %}
