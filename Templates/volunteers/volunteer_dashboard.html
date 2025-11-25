@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}Volunteer Dashboard{% endblock %}
+{% block content %}
+    <div class="container mx-auto py-8">
+        <h1 class="text-4xl font-bold mb-8 text-center">Volunteer Dashboard</h1>
+        
+        <!-- Navigation -->
+        <nav class="flex justify-center gap-4 mb-8">
+            <a href="{{ url_for('index') }}" class="btn bg-sky-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-sky-700 transition duration-300">Home</a>
+            <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">Live Progress Tracking</a>
+        </nav>
+        
+        <!-- Assigned Requests Section -->
+        <div class="mb-12">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Assigned Deliveries</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="assigned-requests-grid">
+                {% if assigned_requests %}
+                    {% for req in assigned_requests %}
+                    <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                        <h3 class="text-2xl font-semibold mb-2">{{ req.donor_name or 'Anonymous Donor' }}</h3>
+                        <p><strong>Food Type:</strong> {{ req.food_type or 'N/A' }}</p>
+                        <p><strong>Quantity:</strong> {{ req.quantity or 'N/A' }}</p>
+                        <p><strong>Pickup Location:</strong> {{ req.pickup_location or 'N/A' }}</p>
+                        <p><strong>Pickup Time:</strong> {{ req.pickup_time or 'N/A' }}</p>
+                        <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
+                        <p><strong>NGO Address:</strong> {{ req.ngo_address or 'N/A' }}</p>
+                        <span class="inline-block mt-2 px-3 py-1 rounded-full text-sm font-semibold 
+                            {% if req.status == 'assigned' %}bg-yellow-100 text-yellow-800
+                            {% elif req.status == 'collected' %}bg-blue-100 text-blue-800
+                            {% elif req.status == 'in_transit' %}bg-purple-100 text-purple-800
+                            {% elif req.status == 'delivered' %}bg-green-100 text-green-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ req.status|title }}
+                        </span>
+                        {% if req.status != 'delivered' %}
+                        <div class="mt-4 space-y-2">
+                            {% if req.status == 'assigned' %}
+                            <button class="btn w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition" onclick="updateStatus({{ req.id }}, 'collected')">Mark as Collected</button>
+                            {% elif req.status == 'collected' %}
+                            <button class="btn w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition" onclick="updateStatus({{ req.id }}, 'in_transit')">Start Delivery</button>
+                            {% elif req.status == 'in_transit' %}
+                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="updateStatus({{ req.id }}, 'delivered')">Complete Delivery</button>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-gray-500 text-lg">No assigned deliveries at the moment.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Completed Deliveries Section -->
+        <div class="mb-12">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Completed Deliveries</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="completed-deliveries-grid">
+                {% if completed_deliveries %}
+                    {% for req in completed_deliveries %}
+                    <div class="bg-white p-6 rounded-lg shadow-lg border border-green-200">
+                        <h3 class="text-2xl font-semibold mb-2">{{ req.donor_name or 'Anonymous Donor' }}</h3>
+                        <p><strong>Food Type:</strong> {{ req.food_type or 'N/A' }}</p>
+                        <p><strong>Quantity:</strong> {{ req.quantity or 'N/A' }}</p>
+                        <p><strong>Pickup Location:</strong> {{ req.pickup_location or 'N/A' }}</p>
+                        <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
+                        <p><strong>Completed:</strong> {{ req.completed_at or 'N/A' }}</p>
+                        <span class="inline-block mt-2 px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
+                            Delivered
+                        </span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-gray-500 text-lg">No completed deliveries yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function updateStatus(requestId, newStatus) {
+            fetch('/update_delivery_status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ request_id: requestId, status: newStatus })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Status updated to ' + newStatus);
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('AJAX error: ' + err);
+            });
+        }
+    </script>
+{% endblock %}

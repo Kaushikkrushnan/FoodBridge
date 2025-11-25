@@ -143,7 +143,7 @@ def donor_dashboard():
     auth_conn.close()
     app_conn.close()
 
-    return render_template('donor_dashboard.html', 
+    return render_template('Donor_dashboard.html', 
                          available_ngos=available_ngos, 
                          requested_ngos=requested_ngos, 
                          accepted_ngos=accepted_ngos,
@@ -481,7 +481,7 @@ def volunteer_dashboard():
     assigned_requests_dict = [dict(row) for row in assigned_requests]
     completed_deliveries_dict = [dict(row) for row in completed_deliveries]
 
-    return render_template('volunteer_dashboard.html',
+    return render_template('volunteers/volunteer_dashboard.html',
                          assigned_requests=assigned_requests_dict,
                          completed_deliveries=completed_deliveries_dict,
                          **user_info)
