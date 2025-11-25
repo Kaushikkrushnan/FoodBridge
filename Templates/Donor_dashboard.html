@@ -13,6 +13,7 @@
             <a href="{{ url_for('dashboard.donor_my_accepted_ngos') }}" class="btn bg-purple-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-purple-700 transition duration-300">My Accepted NGOs</a>
             <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">Live Progress Tracking</a>
         </nav>
+        
         <!-- Available NGOs Section -->
         <div class="mb-12">
             <h2 class="text-3xl font-bold text-gray-800 mb-6">Available NGOs</h2>
@@ -40,6 +41,7 @@
                 {% endif %}
             </div>
         </div>
+        
         <!-- Requested NGOs Section -->
         <div class="mb-12">
             <h2 class="text-3xl font-bold text-gray-800 mb-6">Requested NGOs</h2>
@@ -60,16 +62,6 @@
                 {% else %}
                     <div class="col-span-full text-center py-12">
                         <p class="text-gray-500 text-lg">No requested NGOs.</p>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-        <!-- ...existing code... -->
-    </div>
-{% endblock %}
-                {% else %}
-                    <div class="col-span-full text-center py-12">
-                        <p class="text-gray-500 text-lg">No requested NGOs yet.</p>
                     </div>
                 {% endif %}
             </div>
@@ -235,5 +227,4 @@
             }
         };
     </script>
-</body>
-</html>
+{% endblock %}
