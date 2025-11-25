@@ -27,8 +27,12 @@ def inject_session_info():
         user_id=session.get('user_id'),
         user_name=session.get('user_name'),
         user_email=session.get('user_email'),
+        user_role=session.get('user_role') or session.get('user_type'),
+        user_type=session.get('user_type'),
+        user_phone=session.get('user_contact'),
+        user_session_key=session.get('user_session_key'),
         db_session_id=session.get('db_session_id'),
-        is_logged_in=bool(session.get('user_name') and session.get('user_email'))
+        is_logged_in=bool(session.get('user_name') and (session.get('user_email') or session.get('user_contact')))
     )
 
 # Register blueprints

@@ -237,4 +237,36 @@ def init_all_databases():
     # Also initialize assignment database
     from database.assignment_db import create_assignment_tables
     create_assignment_tables()
+    
+    # Add sample volunteers if none exist
+    add_sample_volunteers()
+
+
+def add_sample_volunteers():
+    """
+    Add sample volunteers to the database for testing.
+    """
+    conn = get_db_connection()
+    
+    # Check if volunteers already exist
+    existing = conn.execute('SELECT COUNT(*) as count FROM volunteers').fetchone()
+    if existing['count'] == 0:
+        sample_volunteers = [
+            ('Rahul Kumar', '9876543210', 12.9716, 77.5946, '08:00', '20:00', 1),
+            ('Priya Sharma', '9876543211', 12.9352, 77.6245, '09:00', '18:00', 1),
+            ('Amit Singh', '9876543212', 12.9141, 77.6411, '07:00', '19:00', 1),
+            ('Sneha Patel', '9876543213', 12.9698, 77.7500, '10:00', '22:00', 1),
+            ('Vikram Reddy', '9876543214', 12.9279, 77.6271, '06:00', '15:00', 1),
+        ]
+        
+        for vol in sample_volunteers:
+            conn.execute('''
+                INSERT INTO volunteers (name, contact, lat, lon, available_from, available_to, is_available)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', vol)
+        
+        conn.commit()
+        print("Sample volunteers added to database.")
+    
+    conn.close()
 
