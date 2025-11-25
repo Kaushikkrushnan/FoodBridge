@@ -11,11 +11,9 @@
     <script>
         // Firebase config from Flask
         const firebaseConfig = {{ firebase_config | tojson}};
-
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
-
         // Make auth available globally
         window.firebaseAuth = auth;
     </script>
@@ -75,128 +73,132 @@
         .file-item {
             display: flex;
             justify-content: space-between;
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>NGO Login & Registration</title>
-                <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-                <!-- Firebase SDK -->
-                <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-                <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-                <script>
-                    // Firebase config from Flask
-                    const firebaseConfig = {{ firebase_config | tojson }};
-
-                    // Initialize Firebase
-                    firebase.initializeApp(firebaseConfig);
-                    const auth = firebase.auth();
-
-                    // Make auth available globally
-                    window.firebaseAuth = auth;
-                </script>
-                <style>
-                    .auth-container {
-                        max-width: 800px;
-                        margin: 2rem auto;
-                        padding: 2rem;
-                    }
-                    .tabs {
-                        display: flex;
-                        gap: 1rem;
-                        margin-bottom: 2rem;
-                        border-bottom: 2px solid var(--border);
-                    }
-                    .tab {
-                        padding: 1rem 2rem;
-                        cursor: pointer;
-                        border: none;
-                        background: none;
-                        font-size: 1rem;
-                        font-weight: 600;
-                        color: var(--text-muted);
-                        border-bottom: 3px solid transparent;
-                        transition: all 0.2s;
-                    }
-                    .tab.active {
-                        color: var(--primary);
-                        border-bottom-color: var(--primary);
-                    }
-                    .tab-content {
-                        display: none;
-                    }
-                    .tab-content.active {
-                        display: block;
-                    }
-                    .form-section {
-                        background: white;
-                        padding: 2rem;
-                        border-radius: 10px;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    }
-                    .file-upload {
-                        border: 2px dashed var(--border);
-                        padding: 2rem;
-                        text-align: center;
-                        border-radius: 6px;
-                        margin-bottom: 1rem;
-                        cursor: pointer;
-                    }
-                    .file-upload:hover {
-                        border-color: var(--primary);
-                    }
-                    .file-list {
-                        margin-top: 1rem;
-                    }
-                    .file-item {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        padding: 0.5rem;
-                        background: var(--bg);
-                        border-radius: 6px;
-                        margin-bottom: 0.5rem;
-                    }
-                    .message {
-                        padding: 1rem;
-                        border-radius: 6px;
-                        margin-bottom: 1rem;
-                    }
-                    .message.success {
-                        background: #d1fae5;
-                        color: #065f46;
-                    }
-                    .message.error {
-                        background: #fee2e2;
-                        color: #991b1b;
-                    }
-                    .loading {
-                        display: inline-block;
-                        width: 20px;
-                        height: 20px;
-                        border: 3px solid #f3f3f3;
-                        border-top: 3px solid var(--primary);
-                        border-radius: 50%;
-                        animation: spin 1s linear infinite;
-                    }
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="auth-container">
-                    <h1 style="text-align: center; color: var(--primary); margin-bottom: 2rem;">NGO Portal</h1>
-        
-                    <div class="tabs">
-                        <button class="tab active" onclick="switchTab('login')">Login</button>
-                        <button class="tab" onclick="switchTab('register')">Register</button>
-                    </div>
-
-                    <!-- Login Tab -->
-                    <div id="login-tab" class="tab-content active">
+            align-items: center;
+            padding: 0.5rem;
+            background: var(--bg);
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+        }
+        .message {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+        .message.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <h1 style="text-align: center; color: var(--primary); margin-bottom: 2rem;">NGO Portal</h1>
+        <div class="form-section">
+            <h2>NGO Login</h2>
+            <div id="login-message"></div>
+            <form id="login-form">
+                <div class="input-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" required>
+                </div>
+                <div class="input-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+            </form>
+        </div>
+        <div style="text-align: center; margin-top: 2rem;">
+            <a href="{{ url_for('index') }}" class="btn" style="background: var(--text-muted); color: white;">Back to Home</a>
+        </div>
+    </div>
+    <!-- Place script at the end of body for guaranteed execution -->
+    <script>
+        // Registration form
+        const registerForm = document.getElementById('register-form');
+        if (registerForm) {
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = document.getElementById('ngo-name').value;
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>NGO Login & Registration</title>
+                    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+                    <!-- Firebase SDK -->
+                    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+                    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+                    <script>
+                        // Firebase config from Flask
+                        const firebaseConfig = {{ firebase_config | tojson}};
+                        // Initialize Firebase
+                        firebase.initializeApp(firebaseConfig);
+                        const auth = firebase.auth();
+                        // Make auth available globally
+                        window.firebaseAuth = auth;
+                    </script>
+                    <style>
+                        .auth-container {
+                            max-width: 800px;
+                            margin: 2rem auto;
+                            padding: 2rem;
+                        }
+                        .form-section {
+                            background: white;
+                            padding: 2rem;
+                            border-radius: 10px;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                        }
+                        .message {
+                            padding: 1rem;
+                            border-radius: 6px;
+                            margin-bottom: 1rem;
+                        }
+                        .message.success {
+                            background: #d1fae5;
+                            color: #065f46;
+                        }
+                        .message.error {
+                            background: #fee2e2;
+                            color: #991b1b;
+                        }
+                        .loading {
+                            display: inline-block;
+                            width: 20px;
+                            height: 20px;
+                            border: 3px solid #f3f3f3;
+                            border-top: 3px solid var(--primary);
+                            border-radius: 50%;
+                            animation: spin 1s linear infinite;
+                        }
+                        @keyframes spin {
+                            0% { transform: rotate(0deg); }
+                            100% { transform: rotate(360deg); }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="auth-container">
+                        <h1 style="text-align: center; color: var(--primary); margin-bottom: 2rem;">NGO Portal</h1>
                         <div class="form-section">
                             <h2>NGO Login</h2>
                             <div id="login-message"></div>
@@ -212,269 +214,127 @@
                                 <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
                             </form>
                         </div>
-                    </div>
-
-                    <!-- Registration Tab -->
-                    <div id="register-tab" class="tab-content">
-                        <div class="form-section">
-                            <h2>NGO Registration</h2>
-                            <div id="register-message"></div>
-                            <form id="register-form">
-                                <div class="input-group">
-                                    <label for="ngo-name">NGO Name *</label>
-                                    <input type="text" id="ngo-name" required>
-                                </div>
-                                <div class="input-group">
-                                    <label for="ngo-email">Email *</label>
-                                    <input type="email" id="ngo-email" required>
-                                </div>
-                                <div class="input-group">
-                                    <label for="ngo-password">Password *</label>
-                                    <input type="password" id="ngo-password" required minlength="6">
-                                    <small style="color: var(--text-muted);">Password will be managed by Firebase</small>
-                                </div>
-                                <div class="input-group">
-                                    <label for="registration-number">Registration Number *</label>
-                                    <input type="text" id="registration-number" required>
-                                </div>
-                    
-                                <h3 style="margin: 1.5rem 0 1rem 0;">Required Certificates *</h3>
-                    
-                                <div class="input-group">
-                                    <label>Society Registration Certificate</label>
-                                    <label for="society-cert" class="file-upload" onclick="document.getElementById('society-cert').click()">
-                                        <p>Click to upload or drag and drop</p>
-                                    </label>
-                                    <input type="file" id="society-cert" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" style="display: none;" onchange="handleFileUpload(this, 'society')">
-                                    <div class="file-list" id="society-file-list"></div>
-                                </div>
-
-                                <div class="input-group">
-                                    <label>Trust Deed</label>
-                                    <label for="trust-deed" class="file-upload" onclick="document.getElementById('trust-deed').click()">
-                                        <p>Click to upload or drag and drop</p>
-                                    </label>
-                                    <input type="file" id="trust-deed" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" style="display: none;" onchange="handleFileUpload(this, 'trust')">
-                                    <div class="file-list" id="trust-file-list"></div>
-                                </div>
-
-                                <div class="input-group">
-                                    <label>Section 8 Company Certificate</label>
-                                    <label for="section8-cert" class="file-upload" onclick="document.getElementById('section8-cert').click()">
-                                        <p>Click to upload or drag and drop</p>
-                                    </label>
-                                    <input type="file" id="section8-cert" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" style="display: none;" onchange="handleFileUpload(this, 'section8')">
-                                    <div class="file-list" id="section8-file-list"></div>
-                                </div>
-                    
-                                <button type="submit" class="btn btn-primary" style="width: 100%;">Register</button>
-                            </form>
+                        <div style="text-align: center; margin-top: 2rem;">
+                            <a href="{{ url_for('index') }}" class="btn" style="background: var(--text-muted); color: white;">Back to Home</a>
                         </div>
                     </div>
-
-                    <div style="text-align: center; margin-top: 2rem;">
-                        <a href="{{ url_for('index') }}" class="btn" style="background: var(--text-muted); color: white;">Back to Home</a>
-                    </div>
-                </div>
-
-                <script>
-                    // Tab switching
-                    function switchTab(tab) {
-                        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-                        if (tab === 'login') {
-                            document.querySelector('.tab:first-child').classList.add('active');
-                            document.getElementById('login-tab').classList.add('active');
-                        } else {
-                            document.querySelector('.tab:last-child').classList.add('active');
-                            document.getElementById('register-tab').classList.add('active');
-                        }
-                    }
-
-                    // File upload handling
-                    const uploadedFiles = {
-                        society: null,
-                        trust: null,
-                        section8: null
-                    };
-
-                    async function handleFileUpload(input, type) {
-                        const file = input.files[0];
-                        if (!file) return;
-
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        formData.append('cert_type', type);
-
-                        try {
-                            const response = await fetch('/upload_certificate', {
-                                method: 'POST',
-                                body: formData
-                            });
-
-                            const data = await response.json();
-                            if (data.success) {
-                                uploadedFiles[type] = data.file_path;
-                                const fileList = document.getElementById(`${type}-file-list`);
-                                fileList.innerHTML = `<div class="file-item">
-                                    <span>${file.name}</span>
-                                    <span style="color: var(--success);">✓ Uploaded</span>
-                                </div>`;
-                            } else {
-                                alert('Upload failed: ' + data.message);
-                            }
-                        } catch (error) {
-                            alert('Error uploading file: ' + error.message);
-                        }
-                    }
-
-                    // Registration form
-                    document.getElementById('register-form').addEventListener('submit', async (e) => {
-                        e.preventDefault();
-
-                        const name = document.getElementById('ngo-name').value;
-                        const email = document.getElementById('ngo-email').value;
-                        const password = document.getElementById('ngo-password').value;
-                        const registrationNumber = document.getElementById('registration-number').value;
-
-                        // Validate certificates
-                        if (!uploadedFiles.society || !uploadedFiles.trust || !uploadedFiles.section8) {
-                            showMessage('register-message', 'Please upload all three required certificates', 'error');
-                            return;
-                        }
-
-                        // Show thanks popup immediately
-                        alert('Thanks for registering into FoodBridge we look forward to work with you');
-
-                        // Show loading
-                        const submitBtn = e.target.querySelector('button[type="submit"]');
-                        const originalText = submitBtn.innerHTML;
-                        submitBtn.innerHTML = '<div class="loading"></div> Registering...';
-                        submitBtn.disabled = true;
-
-                        try {
-                            // First, create Firebase user
-                            const userCredential = await window.firebaseAuth.createUserWithEmailAndPassword(email, password);
-                            const user = userCredential.user;
-
-                            // Get ID token
-                            const idToken = await user.getIdToken();
-
-                            // Register NGO in Flask backend with Firebase token
-                            const response = await fetch('/register_ngo', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    name: name,
-                                    email: email,
-                                    registration_number: registrationNumber,
-                                    id_token: idToken,
-                                    society_cert: uploadedFiles.society,
-                                    trust_deed: uploadedFiles.trust,
-                                    section8_cert: uploadedFiles.section8
-                                })
-                            });
-
-                            const data = await response.json();
-                            if (data.success) {
-                                document.getElementById('register-form').reset();
-                                uploadedFiles.society = null;
-                                uploadedFiles.trust = null;
-                                uploadedFiles.section8 = null;
-                                document.querySelectorAll('.file-list').forEach(el => el.innerHTML = '');
-                                // Redirect to NGO dashboard immediately after successful registration
-                                window.location.href = '/ngo_dashboard';
-                            } else {
-                                // If backend fails, delete Firebase user
-                                await user.delete();
-                                showMessage('register-message', 'Registration failed: ' + data.message, 'error');
-                            }
-                        } catch (error) {
-                            let errorMessage = 'Registration failed';
-                            if (error.code === 'auth/email-already-in-use') {
-                                errorMessage = 'Email already registered';
-                            } else if (error.code === 'auth/weak-password') {
-                                errorMessage = 'Password should be at least 6 characters';
-                            } else if (error.message) {
-                                errorMessage = error.message;
-                            }
-                            showMessage('register-message', errorMessage, 'error');
-                        } finally {
-                            submitBtn.innerHTML = originalText;
-                            submitBtn.disabled = false;
-                        }
+                </body>
+                </html>
+                const registrationNumber = document.getElementById('registration-number').value;
+                // Show thanks popup immediately
+                alert('Thanks for registering into FoodBridge we look forward to work with you');
+                // Show loading
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<div class="loading"></div> Registering...';
+                submitBtn.disabled = true;
+                try {
+                    // First, create Firebase user
+                    const userCredential = await window.firebaseAuth.createUserWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+                    // Get ID token
+                    const idToken = await user.getIdToken();
+                    // Register NGO in Flask backend with Firebase token
+                    const response = await fetch('/register_ngo', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            name: name,
+                            email: email,
+                            registration_number: registrationNumber,
+                            id_token: idToken
+                        })
                     });
-
-                    // Login form
-                    document.getElementById('login-form').addEventListener('submit', async (e) => {
-                        e.preventDefault();
-
-                        const email = document.getElementById('login-email').value;
-                        const password = document.getElementById('login-password').value;
-
-                        // Show loading
-                        const submitBtn = e.target.querySelector('button[type="submit"]');
-                        const originalText = submitBtn.innerHTML;
-                        submitBtn.innerHTML = '<div class="loading"></div> Logging in...';
-                        submitBtn.disabled = true;
-
-                        try {
-                            // Sign in with Firebase
-                            const userCredential = await window.firebaseAuth.signInWithEmailAndPassword(email, password);
-                            const user = userCredential.user;
-
-                            // Get ID token
-                            const idToken = await user.getIdToken();
-
-                            // Login via Flask backend
-                            const response = await fetch('/login_ngo', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    id_token: idToken
-                                })
-                            });
-
-                            const data = await response.json();
-                            if (data.success) {
-                                // Show popup message
-                                alert('Login successful! Welcome to FoodBridge. Redirecting to your dashboard...');
-                                // Redirect to NGO dashboard
-                                window.location.href = '/ngo_dashboard';
-                            } else {
-                                showMessage('login-message', 'Login failed: ' + data.message, 'error');
-                            }
-                        } catch (error) {
-                            let errorMessage = 'Login failed';
-                            if (error.code === 'auth/user-not-found') {
-                                errorMessage = 'No account found with this email';
-                            } else if (error.code === 'auth/wrong-password') {
-                                errorMessage = 'Incorrect password';
-                            } else if (error.code === 'auth/invalid-email') {
-                                errorMessage = 'Invalid email address';
-                            } else if (error.message) {
-                                errorMessage = error.message;
-                            }
-                            showMessage('login-message', errorMessage, 'error');
-                        } finally {
-                            submitBtn.innerHTML = originalText;
-                            submitBtn.disabled = false;
-                        }
-                    });
-
-                    function showMessage(containerId, message, type) {
-                        const container = document.getElementById(containerId);
-                        container.innerHTML = `<div class="message ${type}">${message}</div>`;
-                        setTimeout(() => {
-                            container.innerHTML = '';
-                        }, 5000);
+                    const data = await response.json();
+                    if (data.success) {
+                        registerForm.reset();
+                        // Redirect to NGO dashboard immediately after successful registration
+                        window.location.href = '/ngo_dashboard';
+                    } else {
+                        // If backend fails, delete Firebase user
+                        await user.delete();
+                        showMessage('register-message', 'Registration failed: ' + data.message, 'error');
                     }
-                </script>
-            </body>
-            </html>
+                } catch (error) {
+                    let errorMessage = 'Registration failed';
+                    if (error.code === 'auth/email-already-in-use') {
+                        errorMessage = 'Email already registered';
+                    } else if (error.code === 'auth/weak-password') {
+                        errorMessage = 'Password should be at least 6 characters';
+                    } else if (error.message) {
+                        errorMessage = error.message;
+                    }
+                    showMessage('register-message', errorMessage, 'error');
+                } finally {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            });
+        }
+    </script>
+{% endblock %}
+                }
+            });
+        }
+
+        // Login form
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<div class="loading"></div> Logging in...';
+                submitBtn.disabled = true;
+                try {
+                    const userCredential = await window.firebaseAuth.signInWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+                    const idToken = await user.getIdToken();
+                    const response = await fetch('/login_ngo', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id_token: idToken })
+                    });
+                    const data = await response.json();
+                    console.log('Backend response:', data); // Debug log
+                    if (data.success) {
+                        alert('Login successful! Redirecting...');
+                        window.location.href = '/ngo_dashboard';
+                    } else {
+                        showMessage('login-message', 'Login failed: ' + data.message, 'error');
+                    }
+                } catch (error) {
+                    let errorMessage = 'Login failed';
+                    if (error.code === 'auth/user-not-found') {
+                        errorMessage = 'No account found with this email';
+                    } else if (error.code === 'auth/wrong-password') {
+                        errorMessage = 'Incorrect password';
+                    } else if (error.code === 'auth/invalid-email') {
+                        errorMessage = 'Invalid email address';
+                    } else if (error.message) {
+                        errorMessage = error.message;
+                    }
+                    showMessage('login-message', errorMessage, 'error');
+                    console.error('Login error:', error); // Debug log
+                } finally {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            });
+        }
+
+        function showMessage(containerId, message, type) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<div class="message ${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
 

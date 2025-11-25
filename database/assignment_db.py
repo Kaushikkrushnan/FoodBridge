@@ -4,6 +4,7 @@ import os
 ASSIGNMENT_DB_PATH = os.path.join(os.path.dirname(__file__), 'assignment.db')
 
 def get_assignment_db_connection():
+    print(f"[DEBUG] Using assignment DB at: {ASSIGNMENT_DB_PATH}")
     conn = sqlite3.connect(ASSIGNMENT_DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -85,9 +86,6 @@ def accept_food_donation_request(request_id, volunteer_id=None, volunteer_name=N
     conn.commit()
     conn.close()
 
-    conn.commit()
-    conn.close()
-
 def insert_ngo_assignment(ngo_id, ngo_name, volunteer_id, volunteer_name, food_donor_id, food_donor_name, session_key):
     conn = get_assignment_db_connection()
     cursor = conn.cursor()
@@ -133,6 +131,17 @@ def insert_food_donor_request(assignment_id, food_donor_id, food_donor_name, ngo
 
     conn.commit()
     conn.close()
+
+def get_requested_assignments_for_ngo(ngo_id):
+    conn = get_assignment_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT fdr.* FROM food_donor_requests fdr
+        WHERE fdr.ngo_id = ? AND fdr.status = 'pending' AND fdr.ngo_acceptance_status = 'pending'
+    ''', (ngo_id,))
+    results = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in results]
 
 # Example usage:
 if __name__ == "__main__":

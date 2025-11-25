@@ -1,10 +1,3 @@
-
-# ...existing code...
-
-# Place this route after all imports and after auth_bp is defined
-
-# ...existing code...
-
 """
 Authentication routes for NGO registration and login using Firebase
 """
@@ -22,7 +15,10 @@ auth_bp = Blueprint('auth', __name__)
 @auth_bp.route('/food_donor_register', methods=['GET', 'POST'])
 def food_donor_register():
     if request.method == 'GET':
-        return render_template('food_donor_registration.html')
+        conn = get_db_connection()
+        ngos = conn.execute('SELECT id, name FROM ngos').fetchall()
+        conn.close()
+        return render_template('food_donor_registration.html', ngos=ngos)
     else:
         name = request.form.get('name')
         email = request.form.get('email')
@@ -35,9 +31,6 @@ def food_donor_register():
 
         if not all([name, phone, whatsapp_phone, vehicle_type, address]):
             return render_template('food_donor_registration.html', error_message='All fields are required.')
-
-        # if password != confirm_password:
-        #     return render_template('food_donor_registration.html', error_message='Passwords do not match.')
 
         # Save data to food_donors table (SQLite) only
         conn = get_db_connection()
@@ -55,13 +48,42 @@ def food_donor_register():
         donor_record = conn.execute('SELECT * FROM food_donors WHERE phone = ?', (phone,)).fetchone()
         conn.close()
 
-        # If present in SQLite, redirect to donor dashboard
+        # Store donor-NGO assignments in assignment.db
         if donor_record:
+            selected_ngos = request.form.getlist('selected_ngos')
+            print(f"DEBUG: selected_ngos from form: {selected_ngos}")
+            from database.assignment_db import insert_ngo_assignment, insert_food_donor_request
+            for ngo_id in selected_ngos:
+                ngo_conn = get_db_connection()
+                ngo_row = ngo_conn.execute('SELECT name FROM ngos WHERE id = ?', (ngo_id,)).fetchone()
+                ngo_conn.close()
+                ngo_name = ngo_row['name'] if ngo_row else f"NGO {ngo_id}"
+
+                assignment_id = insert_ngo_assignment(
+                    ngo_id=int(ngo_id),
+                    ngo_name=ngo_name,
+                    volunteer_id=None,
+                    volunteer_name=None,
+                    food_donor_id=donor_record['id'],
+                    food_donor_name=donor_record['organization_name'],
+                    session_key=session.get('user_session_key', '')
+                )
+                print(f"DEBUG: Inserted into ngo_assignments: donor_id={donor_record['id']}, ngo_id={ngo_id}, assignment_id={assignment_id}")
+                insert_food_donor_request(
+                    assignment_id=assignment_id,
+                    food_donor_id=donor_record['id'],
+                    food_donor_name=donor_record['organization_name'],
+                    ngo_id=int(ngo_id),
+                    ngo_name=ngo_name
+                )
+                print(f"DEBUG: Inserted into food_donor_requests: donor_id={donor_record['id']}, ngo_id={ngo_id}, assignment_id={assignment_id}")
+
+            session['user_id'] = donor_record['id']
             session['user_session_key'] = f"donor_{donor_record['id']}_{donor_record['email'] or donor_record['phone']}"
             session['user_type'] = 'food_donor'
             session['user_name'] = donor_record['organization_name']
-            # Store phone/email for display
             session['user_contact'] = donor_record['email'] if donor_record['email'] else donor_record['phone']
+            print('[DEBUG] Session after donor registration:', dict(session))
             return redirect(url_for('dashboard.donor_dashboard'))
         else:
             return render_template('food_donor_registration.html', error_message='Registration failed.')
@@ -69,7 +91,6 @@ def food_donor_register():
 @auth_bp.route('/food_donor_login', methods=['GET', 'POST'])
 def food_donor_login():
     if request.method == 'GET':
-        # Render the login page
         return render_template('food_donor_login.html')
     else:
         name = request.form.get('name')
@@ -80,7 +101,6 @@ def food_donor_login():
             return redirect(url_for('auth.food_donor_login'))
 
         try:
-            # Check for user in food_donors table by name and phone number
             conn = get_db_connection()
             row = conn.execute('SELECT * FROM food_donors WHERE organization_name = ? AND phone = ?', (name, phone)).fetchone()
             conn.close()
@@ -90,13 +110,13 @@ def food_donor_login():
                 flash('User not registered as food donor.', 'error')
                 return redirect(url_for('auth.food_donor_login'))
 
+            session['user_id'] = user_record.get('id')
             session['user_session_key'] = f"donor_{user_record.get('id')}_{user_record.get('email') or user_record.get('phone')}"
             session['user_type'] = 'food_donor'
             session['user_name'] = user_record.get('organization_name')
-            # Store phone/email for display
             session['user_contact'] = user_record.get('email') if user_record.get('email') else user_record.get('phone')
-
-            return redirect(url_for('dashboard.donor_dashboard'))  # Redirecting to donor dashboard route after login
+            print('[DEBUG] Session after donor login:', dict(session))
+            return redirect(url_for('dashboard.donor_dashboard'))
 
         except Exception as e:
             flash(f'Login error: {str(e)}', 'error')

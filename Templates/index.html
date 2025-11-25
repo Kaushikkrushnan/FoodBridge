@@ -86,7 +86,7 @@
 							<h4 style="margin: 0 0 8px 0;">NGO</h4>
 							<p class="meta">Register or log in to view and accept food donations.</p>
 							<div class="actions" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px">
-							{% if user_name and user_email and db_session_id %}
+							{% if user_role == 'NGO' and user_name and user_email and db_session_id %}
 								<button type="button" class="disabled-button" disabled>Register as NGO</button>
 							{% else %}
 								<a href="{{ url_for('auth.ngo_register') }}" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">Register as NGO</a>
@@ -98,7 +98,7 @@
 							<h4 style="margin: 0 0 8px 0;">Food Donor</h4>
 							<p class="meta">Donate surplus food and track your accepted NGOs.</p>
 							<div class="actions" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px">
-							{% if user_name and user_email and db_session_id %}
+							{% if user_role == 'food_donor' and user_name and user_email and db_session_id %}
 								<button type="button" class="disabled-button" disabled>Donate Food</button>
 							{% else %}
 								<a href="{{ url_for('food_donor') }}" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">Donate Food</a>
@@ -110,7 +110,7 @@
 							<h4 style="margin: 0 0 8px 0;">Volunteer</h4>
 							<p class="meta">Register or log in to help with food distribution and tracking.</p>
 							<div class="actions" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px">
-							{% if user_name and user_email and db_session_id %}
+							{% if user_role == 'volunteer' and user_name and user_email and db_session_id %}
 								<button type="button" class="disabled-button" disabled>Register as Volunteer</button>
 							{% else %}
 								<a href="{{ url_for('auth.volunteer_login') }}" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">Register as Volunteer</a>
