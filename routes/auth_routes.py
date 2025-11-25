@@ -26,25 +26,27 @@ def food_donor_register():
         whatsapp_phone = request.form.get('whatsapp_phone')
         vehicle_type = request.form.get('vehicle_type')
         address = request.form.get('address')
-        # password = request.form.get('password')
-        # confirm_password = request.form.get('confirm_password')
 
+        conn = get_db_connection()
+        ngos = conn.execute('SELECT id, name FROM ngos').fetchall()
+        
         if not all([name, phone, whatsapp_phone, vehicle_type, address]):
-            return render_template('food_donor_registration.html', error_message='All fields are required.')
+            conn.close()
+            return render_template('food_donor_registration.html', ngos=ngos, error_message='All fields are required.')
 
         # Save data to food_donors table (SQLite) only
-        conn = get_db_connection()
         donor_record = conn.execute('SELECT * FROM food_donors WHERE phone = ?', (phone,)).fetchone()
         if not donor_record:
             try:
+                # Use NULL for food_type, quantity, pickup_location as they will be set when creating donations
                 insert_cursor = conn.execute('''
-                    INSERT INTO food_donors (organization_name, email, phone, whatsapp_phone, vehicle_type, address, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    INSERT INTO food_donors (organization_name, email, phone, whatsapp_phone, vehicle_type, address, food_type, quantity, pickup_location, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, CURRENT_TIMESTAMP)
                 ''', (name, email, phone, whatsapp_phone, vehicle_type, address))
                 conn.commit()
             except Exception as e:
                 conn.close()
-                return render_template('food_donor_registration.html', error_message='Database error: ' + str(e))
+                return render_template('food_donor_registration.html', ngos=ngos, error_message='Database error: ' + str(e))
         donor_record = conn.execute('SELECT * FROM food_donors WHERE phone = ?', (phone,)).fetchone()
         conn.close()
 
@@ -208,11 +210,11 @@ def register_ngo():
                 'message': 'Email mismatch between Firebase user and provided data'
             }), 400
 
-        # Persist NGO in auth.db
+        # Persist NGO in app.db (ngos table)
         try:
-            conn = get_auth_db_connection()
+            conn = get_db_connection()
             cursor = conn.execute(
-                'SELECT id FROM users WHERE email = ?',
+                'SELECT id FROM ngos WHERE email = ?',
                 (email,)
             ).fetchone()
             if cursor:
@@ -220,8 +222,8 @@ def register_ngo():
                 return jsonify({'success': False, 'message': 'NGO with this email already exists'}), 400
 
             insert_cursor = conn.execute('''
-                INSERT INTO users (firebase_uid, name, email, registration_number, society_cert, trust_deed, section8_cert, verified, auto_verified, current_session_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, NULL)
+                INSERT INTO ngos (firebase_uid, name, email, registration_number, society_cert, trust_deed, section8_cert, verified, auto_verified)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
             ''', (firebase_uid, name, email, registration_number, society_cert, trust_deed, section8_cert))
             conn.commit()
             ngo_id = insert_cursor.lastrowid
@@ -368,8 +370,8 @@ def login_ngo():
                 return jsonify({'success': False, 'message': 'Unable to determine user email from Firebase token'}), 400
 
             try:
-                conn = get_auth_db_connection()
-                ngo_row = conn.execute('SELECT * FROM users WHERE email = ?', (firebase_email,)).fetchone()
+                conn = get_db_connection()
+                ngo_row = conn.execute('SELECT * FROM ngos WHERE email = ?', (firebase_email,)).fetchone()
                 print(f"[DEBUG] NGO row from DB: {ngo_row}")
 
                 if not ngo_row:
@@ -379,11 +381,11 @@ def login_ngo():
                         'Registered NGO'
                     )
                     conn.execute('''
-                        INSERT INTO users (firebase_uid, name, email, registration_number, society_cert, trust_deed, section8_cert, verified, auto_verified, current_session_id)
-                        VALUES (?, ?, ?, ?, '', '', '', 0, 0, NULL)
+                        INSERT INTO ngos (firebase_uid, name, email, registration_number, society_cert, trust_deed, section8_cert, verified, auto_verified)
+                        VALUES (?, ?, ?, ?, '', '', '', 0, 0)
                     ''', (firebase_uid, display_name, firebase_email, ''))
                     conn.commit()
-                    ngo_row = conn.execute('SELECT * FROM users WHERE email = ?', (firebase_email,)).fetchone()
+                    ngo_row = conn.execute('SELECT * FROM ngos WHERE email = ?', (firebase_email,)).fetchone()
                     print(f"[DEBUG] Created new NGO row: {ngo_row}")
 
                 conn.close()
