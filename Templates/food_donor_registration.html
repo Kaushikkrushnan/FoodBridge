@@ -254,20 +254,6 @@
                         placeholder="Enter your complete address for pickup coordination"></textarea>
                 </div>
                 
-                <div class="section-divider">
-                    <span>Select NGO Partner</span>
-                </div>
-                
-                <div class="input-group">
-                    <label for="selected_ngos">Choose an NGO to donate to</label>
-                    <select name="selected_ngos" id="selected_ngos" required class="ngo-select">
-                        <option value="">Select an NGO</option>
-                        {% for ngo in ngos %}
-                            <option value="{{ ngo.id }}">{{ ngo.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
                 <button type="submit" class="btn-submit">
                     🚀 Complete Registration
                 </button>
