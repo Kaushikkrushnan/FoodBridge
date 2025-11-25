@@ -14,11 +14,10 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/food_donor_register', methods=['GET', 'POST'])
 def food_donor_register():
-    conn = get_db_connection()
-    ngos = conn.execute('SELECT id, name FROM ngos').fetchall()
-    conn.close()
-    
     if request.method == 'GET':
+        conn = get_db_connection()
+        ngos = conn.execute('SELECT id, name FROM ngos').fetchall()
+        conn.close()
         return render_template('food_donor_registration.html', ngos=ngos)
     else:
         name = request.form.get('name')
@@ -28,18 +27,22 @@ def food_donor_register():
         vehicle_type = request.form.get('vehicle_type')
         address = request.form.get('address')
 
+        conn = get_db_connection()
+        ngos = conn.execute('SELECT id, name FROM ngos').fetchall()
+        
         if not all([name, phone, whatsapp_phone, vehicle_type, address]):
+            conn.close()
             return render_template('food_donor_registration.html', ngos=ngos, error_message='All fields are required.')
 
         # Save data to food_donors table (SQLite) only
-        conn = get_db_connection()
         donor_record = conn.execute('SELECT * FROM food_donors WHERE phone = ?', (phone,)).fetchone()
         if not donor_record:
             try:
+                # Use NULL for food_type, quantity, pickup_location as they will be set when creating donations
                 insert_cursor = conn.execute('''
                     INSERT INTO food_donors (organization_name, email, phone, whatsapp_phone, vehicle_type, address, food_type, quantity, pickup_location, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, 'Pending', 'Pending', ?, CURRENT_TIMESTAMP)
-                ''', (name, email, phone, whatsapp_phone, vehicle_type, address, address))
+                    VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, CURRENT_TIMESTAMP)
+                ''', (name, email, phone, whatsapp_phone, vehicle_type, address))
                 conn.commit()
             except Exception as e:
                 conn.close()
