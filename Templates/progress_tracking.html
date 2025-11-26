@@ -104,8 +104,8 @@
                         {% if req.volunteer_name %}
                         <div class="volunteer-card mb-4">
                             <p class="font-semibold text-blue-800">🚴 Volunteer: {{ req.volunteer_name }}</p>
-                            <p class="text-gray-600 text-sm">Phone: +91 {{ range(70000, 99999)|random }} {{ range(10000, 99999)|random }}</p>
-                            <p class="text-gray-600 text-sm">Vehicle: {{ ['Bike', 'Scooty', 'Car', 'Van']|random }}</p>
+                            <p class="text-gray-600 text-sm">Phone: {{ req.volunteer_phone or '+91 Not Available' }}</p>
+                            <p class="text-gray-600 text-sm">Vehicle: {{ req.volunteer_vehicle or 'Not specified' }}</p>
                         </div>
                         {% endif %}
 
@@ -192,8 +192,8 @@
                             <h4 class="font-semibold text-gray-800">{{ req.volunteer_name }}</h4>
                             <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">Active</span>
                         </div>
-                        <p class="text-sm text-gray-600 mb-1"><strong>Vehicle:</strong> {{ ['Bike', 'Scooty', 'Car', 'Van']|random }}</p>
-                        <p class="text-sm text-gray-600 mb-1"><strong>Phone:</strong> +91 {{ range(70000, 99999)|random }} {{ range(10000, 99999)|random }}</p>
+                        <p class="text-sm text-gray-600 mb-1"><strong>Vehicle:</strong> {{ req.volunteer_vehicle or 'Not specified' }}</p>
+                        <p class="text-sm text-gray-600 mb-1"><strong>Phone:</strong> {{ req.volunteer_phone or '+91 Not Available' }}</p>
                         <p class="text-sm text-gray-600"><strong>Task:</strong> {{ req.food_donor_name }} → {{ req.ngo_name }}</p>
                     </div>
                     {% endif %}

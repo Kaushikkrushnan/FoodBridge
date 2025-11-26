@@ -9,6 +9,13 @@ import math
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
+# Progress step constants
+PROGRESS_STEP_NONE = 0
+PROGRESS_STEP_FOOD_PACKED = 1
+PROGRESS_STEP_VOLUNTEER_ASSIGNED = 2
+PROGRESS_STEP_NEAR_NGO = 3
+PROGRESS_STEP_DELIVERED = 4
+
 # Random volunteer names for testing
 RANDOM_VOLUNTEER_NAMES = [
     "Arun Kumar", "Priya Sharma", "Rahul Verma", "Sneha Reddy", 
@@ -148,15 +155,15 @@ def ngo_accept_donation():
         volunteer_vehicle = random.choice(RANDOM_VEHICLES)
         
         # Update the request with volunteer info and acceptance
-        # Also set progress_step to 1 (Food packed & ready)
+        # Also set progress_step to PROGRESS_STEP_FOOD_PACKED (Food packed & ready)
         conn.execute('''
             UPDATE food_donor_requests 
             SET status = 'accepted', ngo_acceptance_status = 'accepted', 
                 volunteer_id = ?, volunteer_name = ?, 
                 volunteer_allocated_time = CURRENT_TIMESTAMP,
-                progress_step = 1
+                progress_step = ?
             WHERE id = ?
-        ''', (volunteer_id, volunteer_name, request_id))
+        ''', (volunteer_id, volunteer_name, PROGRESS_STEP_FOOD_PACKED, request_id))
         
         # Also update the parent assignment
         conn.execute('''
@@ -165,9 +172,9 @@ def ngo_accept_donation():
                 volunteer_id = ?, volunteer_name = ?,
                 volunteer_allocated_time = CURRENT_TIMESTAMP,
                 volunteer_phone = ?, volunteer_vehicle = ?,
-                progress_step = 1
+                progress_step = ?
             WHERE id = (SELECT assignment_id FROM food_donor_requests WHERE id = ?)
-        ''', (volunteer_id, volunteer_name, volunteer_phone, volunteer_vehicle, request_id))
+        ''', (volunteer_id, volunteer_name, volunteer_phone, volunteer_vehicle, PROGRESS_STEP_FOOD_PACKED, request_id))
         
         conn.commit()
         conn.close()
@@ -589,13 +596,25 @@ def progress():
         SELECT * FROM food_donor_requests WHERE status = 'pending' AND ngo_acceptance_status = 'pending' ORDER BY id DESC
     """).fetchall()
     collected_requests = conn.execute("""
-        SELECT * FROM food_donor_requests WHERE status = 'accepted' AND ngo_acceptance_status = 'accepted' ORDER BY id DESC
+        SELECT r.*, a.volunteer_phone, a.volunteer_vehicle 
+        FROM food_donor_requests r
+        LEFT JOIN ngo_assignments a ON r.assignment_id = a.id
+        WHERE r.status = 'accepted' AND r.ngo_acceptance_status = 'accepted' 
+        ORDER BY r.id DESC
     """).fetchall()
     in_transit_requests = conn.execute("""
-        SELECT * FROM food_donor_requests WHERE status = 'in_transit' ORDER BY id DESC
+        SELECT r.*, a.volunteer_phone, a.volunteer_vehicle 
+        FROM food_donor_requests r
+        LEFT JOIN ngo_assignments a ON r.assignment_id = a.id
+        WHERE r.status = 'in_transit' 
+        ORDER BY r.id DESC
     """).fetchall()
     delivered_requests = conn.execute("""
-        SELECT * FROM food_donor_requests WHERE status = 'delivered' ORDER BY id DESC
+        SELECT r.*, a.volunteer_phone, a.volunteer_vehicle 
+        FROM food_donor_requests r
+        LEFT JOIN ngo_assignments a ON r.assignment_id = a.id
+        WHERE r.status = 'delivered' 
+        ORDER BY r.id DESC
     """).fetchall()
 
     # Get unique NGOs involved in these requests - from app.db
