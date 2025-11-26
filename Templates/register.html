@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NGO Registration</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% if not use_mock_auth %}
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script>
@@ -13,6 +14,7 @@
         const auth = firebase.auth();
         window.firebaseAuth = auth;
     </script>
+    {% endif %}
     <style>
         .auth-container {
             max-width: 900px;
@@ -85,6 +87,33 @@
             padding: 0.75rem;
             background: #f8fafc;
         }
+        .input-group {
+            margin-bottom: 1rem;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+        }
     </style>
 </head>
 <body>
@@ -94,7 +123,64 @@
         </h1>
 
         <div class="form-section">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+            
             <div id="register-message"></div>
+            
+            {% if use_mock_auth %}
+            <!-- Mock Auth Form (Direct form submission) -->
+            <form method="POST" action="{{ url_for('auth.ngo_register_mock') }}">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="name">NGO Name</label>
+                        <input type="text" name="name" id="name" placeholder="Helping Hearts Trust" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="email">Official Email</label>
+                        <input type="email" name="email" id="email" placeholder="contact@ngo.org" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="registration_number">Registration Number</label>
+                        <input type="text" name="registration_number" id="registration_number" placeholder="TN/2020/0001234" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="password">Create Password</label>
+                        <input type="password" name="password" id="password" placeholder="Minimum 6 characters" minlength="6" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="confirm_password">Confirm Password</label>
+                        <input type="password" id="confirm_password" placeholder="Confirm password" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="primary_contact">Primary Contact</label>
+                        <input type="text" name="primary_contact" id="primary_contact" placeholder="Contact person name">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 2rem;">
+                    Complete Registration
+                </button>
+            </form>
+            
+            <script>
+                document.querySelector('form').addEventListener('submit', function(e) {
+                    const password = document.getElementById('password').value;
+                    const confirmPassword = document.getElementById('confirm_password').value;
+                    if (password !== confirmPassword) {
+                        e.preventDefault();
+                        alert('Passwords do not match!');
+                        return false;
+                    }
+                });
+            </script>
+            {% else %}
+            <!-- Firebase Auth Form -->
             <form id="register-form">
                 <div class="form-grid">
                     <div class="input-group">
@@ -158,6 +244,7 @@
                     Complete Registration
                 </button>
             </form>
+            {% endif %}
 
             <div class="auth-links">
                 <p>Already registered?</p>
@@ -170,6 +257,7 @@
         </div>
     </div>
 
+    {% if not use_mock_auth %}
     <script>
         const uploadedDocs = {
             society: '',
@@ -289,5 +377,6 @@
             }, 6000);
         }
     </script>
+    {% endif %}
 </body>
 </html>

@@ -191,6 +191,27 @@
             {% endwith %}
             
             <form method="POST" action="{{ url_for('auth.food_donor_login') }}">
+                {% if use_mock_auth %}
+                <!-- Mock Auth Mode: Email/Password Login -->
+                <div class="input-group">
+                    <label for="email">Email Address</label>
+                    <div class="input-icon-wrapper">
+                        <span>📧</span>
+                        <input type="email" name="email" id="email" required 
+                            placeholder="Enter your email" />
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <div class="input-icon-wrapper">
+                        <span>🔒</span>
+                        <input type="password" name="password" id="password" required 
+                            placeholder="Enter your password" />
+                    </div>
+                </div>
+                {% else %}
+                <!-- Legacy Mode: Name/Phone Login -->
                 <div class="input-group">
                     <label for="name">Organization / Your Name</label>
                     <div class="input-icon-wrapper">
@@ -208,6 +229,7 @@
                             placeholder="Enter your registered phone" />
                     </div>
                 </div>
+                {% endif %}
                 
                 <button type="submit" class="btn-login">
                     🔓 Login

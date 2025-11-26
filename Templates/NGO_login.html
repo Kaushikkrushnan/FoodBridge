@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NGO Login</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <!-- Firebase SDK -->
+    {% if not use_mock_auth %}
+    <!-- Firebase SDK (only when not using mock auth) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script>
@@ -17,6 +18,7 @@
         // Make auth available globally
         window.firebaseAuth = auth;
     </script>
+    {% endif %}
     <style>
         .auth-container {
             max-width: 800px;
@@ -67,6 +69,33 @@
         .auth-links a:hover {
             text-decoration: underline;
         }
+        .input-group {
+            margin-bottom: 1rem;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+        }
     </style>
 </head>
 <body>
@@ -74,7 +103,32 @@
         <h1 style="text-align: center; color: var(--primary); margin-bottom: 2rem;">NGO Portal</h1>
         <div class="form-section">
             <h2>NGO Login</h2>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+            
             <div id="login-message"></div>
+            
+            {% if use_mock_auth %}
+            <!-- Mock Auth Form (Direct form submission) -->
+            <form method="POST" action="{{ url_for('auth.ngo_login_mock') }}">
+                <div class="input-group">
+                    <label for="email">Email</label>
+                    <input type="email" name="email" id="email" required>
+                </div>
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input type="password" name="password" id="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+            </form>
+            {% else %}
+            <!-- Firebase Auth Form -->
             <form id="login-form">
                 <div class="input-group">
                     <label for="login-email">Email</label>
@@ -86,6 +140,8 @@
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
             </form>
+            {% endif %}
+            
             <div class="auth-links">
                 <p>Not registered yet?</p>
                 <a href="{{ url_for('auth.ngo_register') }}">Register your NGO</a>
@@ -96,8 +152,9 @@
         </div>
     </div>
 
+    {% if not use_mock_auth %}
     <script>
-        // Login form
+        // Login form (Firebase auth)
         const loginForm = document.getElementById('login-form');
         if (loginForm) {
             loginForm.addEventListener('submit', async (e) => {
@@ -153,5 +210,6 @@
             }, 5000);
         }
     </script>
+    {% endif %}
 </body>
 </html>
