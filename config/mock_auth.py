@@ -5,7 +5,6 @@ This allows testing without external Firebase dependencies.
 
 To switch back to Firebase auth, set USE_MOCK_AUTH = False
 """
-import sqlite3
 import hashlib
 import os
 
@@ -13,7 +12,11 @@ import os
 USE_MOCK_AUTH = True
 
 def hash_password(password):
-    """Hash password using SHA-256"""
+    """
+    Hash password using SHA-256.
+    NOTE: For production, use bcrypt, scrypt, or argon2 with salting.
+    This simple hash is for testing/development purposes only.
+    """
     return hashlib.sha256(password.encode()).hexdigest()
 
 def verify_password(stored_hash, password):

@@ -70,11 +70,15 @@ def food_donor_register():
         donor_record = conn.execute('SELECT * FROM food_donors WHERE phone = ?', (phone,)).fetchone()
         if not donor_record:
             try:
-                # Use default values for food_type, quantity, pickup_location as they will be set when creating donations
+                # Default values for food_type, quantity, pickup_location
+                # These will be updated when the donor creates a food donation
+                DEFAULT_FOOD_TYPE = 'Not specified'
+                DEFAULT_QUANTITY = 'Not specified'
+                
                 insert_cursor = conn.execute('''
                     INSERT INTO food_donors (organization_name, email, phone, whatsapp_phone, vehicle_type, address, food_type, quantity, pickup_location, password_hash, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, ?, CURRENT_TIMESTAMP)
-                ''', (name, email, phone, whatsapp_phone, vehicle_type, address, address, password_hash))
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ''', (name, email, phone, whatsapp_phone, vehicle_type, address, DEFAULT_FOOD_TYPE, DEFAULT_QUANTITY, address, password_hash))
                 conn.commit()
             except Exception as e:
                 conn.close()
