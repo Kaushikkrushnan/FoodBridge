@@ -68,6 +68,7 @@
         <!-- Navigation -->
         <nav class="flex justify-center gap-4 mb-8">
             <a href="{{ url_for('index') }}" class="btn bg-sky-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-sky-700 transition duration-300">Home</a>
+            <a href="{{ url_for('dashboard.donor_requested_ngos') }}" class="btn bg-yellow-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-yellow-700 transition duration-300">📋 My Requested NGOs</a>
             <a href="{{ url_for('dashboard.donor_my_accepted_ngos') }}" class="btn bg-purple-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-purple-700 transition duration-300">My Accepted NGOs</a>
             <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">Live Progress Tracking</a>
         </nav>

@@ -117,6 +117,14 @@ def accept_ngo():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# Random volunteer phone numbers and vehicle types for testing
+RANDOM_PHONES = [
+    "+91 98765 43210", "+91 87654 32109", "+91 76543 21098",
+    "+91 65432 10987", "+91 54321 09876", "+91 43210 98765"
+]
+RANDOM_VEHICLES = ["Bike", "Scooty", "Car", "Van", "Auto Rickshaw"]
+
+
 @dashboard_bp.route('/ngo_accept_donation', methods=['POST'])
 def ngo_accept_donation():
     """NGO accepts a food donation request and assigns a volunteer"""
@@ -136,13 +144,17 @@ def ngo_accept_donation():
         # Assign a volunteer (using random names for now)
         volunteer_name = random.choice(RANDOM_VOLUNTEER_NAMES)
         volunteer_id = random.randint(100, 999)
+        volunteer_phone = random.choice(RANDOM_PHONES)
+        volunteer_vehicle = random.choice(RANDOM_VEHICLES)
         
         # Update the request with volunteer info and acceptance
+        # Also set progress_step to 1 (Food packed & ready)
         conn.execute('''
             UPDATE food_donor_requests 
             SET status = 'accepted', ngo_acceptance_status = 'accepted', 
                 volunteer_id = ?, volunteer_name = ?, 
-                volunteer_allocated_time = CURRENT_TIMESTAMP
+                volunteer_allocated_time = CURRENT_TIMESTAMP,
+                progress_step = 1
             WHERE id = ?
         ''', (volunteer_id, volunteer_name, request_id))
         
@@ -151,9 +163,11 @@ def ngo_accept_donation():
             UPDATE ngo_assignments 
             SET request_status = 'accepted', acceptance_time = CURRENT_TIMESTAMP,
                 volunteer_id = ?, volunteer_name = ?,
-                volunteer_allocated_time = CURRENT_TIMESTAMP
+                volunteer_allocated_time = CURRENT_TIMESTAMP,
+                volunteer_phone = ?, volunteer_vehicle = ?,
+                progress_step = 1
             WHERE id = (SELECT assignment_id FROM food_donor_requests WHERE id = ?)
-        ''', (volunteer_id, volunteer_name, request_id))
+        ''', (volunteer_id, volunteer_name, volunteer_phone, volunteer_vehicle, request_id))
         
         conn.commit()
         conn.close()
@@ -161,12 +175,109 @@ def ngo_accept_donation():
         return jsonify({
             'success': True, 
             'volunteer_name': volunteer_name,
-            'volunteer_id': volunteer_id
+            'volunteer_id': volunteer_id,
+            'volunteer_phone': volunteer_phone,
+            'volunteer_vehicle': volunteer_vehicle
         })
     except Exception as e:
         print('[ERROR] Exception in ngo_accept_donation:')
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/update_progress_step', methods=['POST'])
+def update_progress_step():
+    """Update the progress step for a donation request"""
+    data = request.get_json()
+    request_id = data.get('request_id')
+    step = data.get('step')
+    
+    if not request_id or step is None:
+        return jsonify({'success': False, 'error': 'Missing request_id or step'}), 400
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        # Update progress step
+        conn.execute('''
+            UPDATE food_donor_requests SET progress_step = ? WHERE id = ?
+        ''', (step, request_id))
+        
+        conn.execute('''
+            UPDATE ngo_assignments SET progress_step = ?
+            WHERE id = (SELECT assignment_id FROM food_donor_requests WHERE id = ?)
+        ''', (step, request_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'step': step})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/donor/requested_ngos')
+def donor_requested_ngos():
+    """
+    Render page showing all NGOs that this food donor has requested.
+    """
+    current_donor_id = session.get('user_id')
+    current_donor_name = session.get('user_name')
+    
+    user_info = {
+        'user_name': session.get('user_name', 'Food Donor'),
+        'user_email': session.get('user_email', ''),
+        'user_role': session.get('user_role', 'Donor'),
+    }
+    
+    requested_ngos = []
+    
+    if current_donor_id:
+        from database.assignment_db import get_assignment_db_connection
+        assign_conn = get_assignment_db_connection()
+        
+        # Get all NGO requests for this donor
+        requests = assign_conn.execute('''
+            SELECT a.ngo_id, a.ngo_name, a.request_status, a.assigned_at as request_time,
+                   a.volunteer_name, a.volunteer_id, a.acceptance_time,
+                   r.status, r.ngo_acceptance_status
+            FROM ngo_assignments a
+            LEFT JOIN food_donor_requests r ON a.id = r.assignment_id
+            WHERE a.food_donor_id = ?
+            ORDER BY a.assigned_at DESC
+        ''', (current_donor_id,)).fetchall()
+        
+        assign_conn.close()
+        
+        # Get NGO details from app.db
+        app_conn = get_db_connection()
+        for req in requests:
+            ngo = app_conn.execute('''
+                SELECT id, name, email, address, registration_number
+                FROM ngos WHERE id = ?
+            ''', (req['ngo_id'],)).fetchone()
+            
+            if ngo:
+                ngo_dict = dict(ngo)
+                ngo_dict['request_time'] = req['request_time']
+                ngo_dict['volunteer_name'] = req['volunteer_name']
+                
+                # Determine status
+                if req['ngo_acceptance_status'] == 'accepted' or req['request_status'] == 'accepted':
+                    ngo_dict['status'] = 'accepted'
+                    ngo_dict['status_display'] = 'Accepted by NGO'
+                else:
+                    ngo_dict['status'] = 'pending'
+                    ngo_dict['status_display'] = 'Pending NGO Approval'
+                
+                requested_ngos.append(ngo_dict)
+        
+        app_conn.close()
+    
+    return render_template('food_donor_requested.html',
+                         requested_ngos=requested_ngos,
+                         **user_info)
 
 
 @dashboard_bp.route('/donor_dashboard')
@@ -560,7 +671,7 @@ def progress():
             user_assignments = get_user_assignments(user_email)
         except Exception as e:
             user_assignments = []
-    return render_template('progress.html', 
+    return render_template('progress_tracking.html', 
                            assigned_requests=assigned_requests_list,
                            collected_requests=collected_requests_list,
                            in_transit_requests=in_transit_requests_list,

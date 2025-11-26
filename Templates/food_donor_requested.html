@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My Requested NGOs - FoodBridge</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container-card {
+            background: #f0f9ff;
+            border-radius: 20px;
+            padding: 2rem;
+            margin: 1rem;
+        }
+        .ngo-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .ngo-card:hover {
+            transform: translateY(-2px);
+        }
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .status-accepted {
+            background: #d1fae5;
+            color: #065f46;
+        }
+    </style>
+</head>
+<body>
+    <!-- Top-right user info display -->
+    <div style="position: fixed; top: 10px; right: 20px; z-index: 100;">
+        {% if user_name %}
+            <div class="bg-green-600 text-white px-4 py-2 rounded shadow-lg">
+                Logged in as: <b>{{ user_name }}</b> (Food Donor)
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="container-card max-w-7xl mx-auto">
+        <!-- Header Section -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">📋 My Requested NGOs</h1>
+            <p class="text-lg text-gray-600">Track the status of your donation requests to NGOs</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex justify-center gap-4 mb-8 flex-wrap">
+            <a href="{{ url_for('dashboard.donor_dashboard') }}" class="btn bg-blue-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-blue-700 transition duration-300">← Back to Dashboard</a>
+            <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">📍 Live Progress Tracking</a>
+        </nav>
+
+        <!-- Requested NGOs Section -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">NGOs You've Requested</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="requested-ngos-grid">
+                {% if requested_ngos %}
+                    {% for ngo in requested_ngos %}
+                    <div class="ngo-card">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-semibold text-gray-800">{{ ngo.name or 'NGO' }}</h3>
+                            <span class="status-badge {% if ngo.status == 'accepted' %}status-accepted{% else %}status-pending{% endif %}">
+                                {{ ngo.status_display or 'Pending NGO Approval' }}
+                            </span>
+                        </div>
+                        <p class="text-gray-600 mb-2"><strong>Email:</strong> {{ ngo.email or 'N/A' }}</p>
+                        <p class="text-gray-600 mb-2"><strong>Address:</strong> {{ ngo.address or 'N/A' }}</p>
+                        <p class="text-gray-600 mb-2"><strong>Contact:</strong> {{ ngo.primary_contact or 'N/A' }}</p>
+                        <p class="text-gray-500 text-sm mb-2"><strong>Requested At:</strong> {{ ngo.request_time or 'N/A' }}</p>
+                        
+                        {% if ngo.status == 'accepted' %}
+                        <div class="bg-green-50 p-3 rounded-lg mt-3">
+                            <p class="text-green-800 font-semibold">✅ Request Accepted!</p>
+                            {% if ngo.volunteer_name %}
+                            <p class="text-green-600">🚴 Volunteer: {{ ngo.volunteer_name }}</p>
+                            {% endif %}
+                            <a href="{{ url_for('dashboard.progress') }}" 
+                               class="mt-2 inline-block text-center bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm">
+                                📍 Track Progress
+                            </a>
+                        </div>
+                        {% else %}
+                        <div class="bg-yellow-50 p-3 rounded-lg mt-3">
+                            <p class="text-yellow-800">⏳ Waiting for NGO to accept your request</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-gray-500 text-lg">You haven't requested any NGOs yet.</p>
+                        <p class="text-gray-400 mt-2">Go to the dashboard to select NGOs for your food donation.</p>
+                        <a href="{{ url_for('dashboard.donor_dashboard') }}" 
+                           class="mt-4 inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
+                            Go to Dashboard
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

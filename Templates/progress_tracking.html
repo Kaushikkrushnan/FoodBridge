@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Progress Tracking - FoodBridge</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container-card {
+            background: #f0f9ff;
+            border-radius: 20px;
+            padding: 2rem;
+            margin: 1rem;
+        }
+        .progress-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .step-complete {
+            background: #d1fae5;
+            border-color: #10b981;
+        }
+        .step-active {
+            background: #fef3c7;
+            border-color: #f59e0b;
+        }
+        .step-pending {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+        }
+        .step-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .step-icon-complete {
+            background: #10b981;
+            color: white;
+        }
+        .step-icon-active {
+            background: #f59e0b;
+            color: white;
+        }
+        .step-icon-pending {
+            background: #d1d5db;
+            color: #6b7280;
+        }
+        #map {
+            height: 400px;
+            border-radius: 12px;
+        }
+        .volunteer-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1rem;
+            border-left: 4px solid #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-card max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">📍 Live Progress Tracking</h1>
+            <p class="text-lg text-gray-600">Real-time tracking of food donations and volunteer movements</p>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-center mb-8 flex-wrap gap-2">
+            <a href="{{ url_for('index') }}" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-300">Home</a>
+            <a href="{{ url_for('dashboard.donor_dashboard') }}" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition duration-300">Food Donor Dashboard</a>
+            <a href="{{ url_for('dashboard.ngo_dashboard') }}" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300">NGO Dashboard</a>
+        </div>
+
+        <!-- Active Donations with Progress Steps -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">🚴 Active Donations</h2>
+            
+            {% if collected_requests %}
+                <div class="grid gap-6">
+                {% for req in collected_requests %}
+                    <div class="progress-card">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-xl font-semibold">{{ req.food_donor_name or 'Food Donor' }} → {{ req.ngo_name or 'NGO' }}</h3>
+                                <p class="text-gray-600">Request #{{ req.id }}</p>
+                            </div>
+                            <div class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                                In Progress
+                            </div>
+                        </div>
+                        
+                        {% if req.volunteer_name %}
+                        <div class="volunteer-card mb-4">
+                            <p class="font-semibold text-blue-800">🚴 Volunteer: {{ req.volunteer_name }}</p>
+                            <p class="text-gray-600 text-sm">Phone: +91 {{ range(70000, 99999)|random }} {{ range(10000, 99999)|random }}</p>
+                            <p class="text-gray-600 text-sm">Vehicle: {{ ['Bike', 'Scooty', 'Car', 'Van']|random }}</p>
+                        </div>
+                        {% endif %}
+
+                        <!-- Progress Steps -->
+                        <div class="grid grid-cols-4 gap-2">
+                            {% set current_step = req.progress_step|default(1) %}
+                            
+                            <!-- Step 1: Food Packed -->
+                            <div class="p-3 rounded-lg border-2 {% if current_step >= 1 %}step-complete{% else %}step-pending{% endif %}">
+                                <div class="flex items-center mb-2">
+                                    <div class="step-icon {% if current_step >= 1 %}step-icon-complete{% else %}step-icon-pending{% endif %} mr-2">
+                                        {% if current_step >= 1 %}✓{% else %}1{% endif %}
+                                    </div>
+                                    <span class="font-semibold text-sm">Food Packed</span>
+                                </div>
+                                <p class="text-xs text-gray-600">Ready to be collected</p>
+                            </div>
+
+                            <!-- Step 2: Volunteer Assigned -->
+                            <div class="p-3 rounded-lg border-2 {% if current_step >= 2 %}step-complete{% elif current_step == 1 %}step-active{% else %}step-pending{% endif %}">
+                                <div class="flex items-center mb-2">
+                                    <div class="step-icon {% if current_step >= 2 %}step-icon-complete{% elif current_step == 1 %}step-icon-active{% else %}step-icon-pending{% endif %} mr-2">
+                                        {% if current_step >= 2 %}✓{% else %}2{% endif %}
+                                    </div>
+                                    <span class="font-semibold text-sm">Volunteer Assigned</span>
+                                </div>
+                                <p class="text-xs text-gray-600">{{ req.volunteer_name or 'Pending' }}</p>
+                            </div>
+
+                            <!-- Step 3: Near NGO -->
+                            <div class="p-3 rounded-lg border-2 {% if current_step >= 3 %}step-complete{% elif current_step == 2 %}step-active{% else %}step-pending{% endif %}">
+                                <div class="flex items-center mb-2">
+                                    <div class="step-icon {% if current_step >= 3 %}step-icon-complete{% elif current_step == 2 %}step-icon-active{% else %}step-icon-pending{% endif %} mr-2">
+                                        {% if current_step >= 3 %}✓{% else %}3{% endif %}
+                                    </div>
+                                    <span class="font-semibold text-sm">Volunteer Near NGO</span>
+                                </div>
+                                <p class="text-xs text-gray-600">Almost there</p>
+                            </div>
+
+                            <!-- Step 4: Delivered -->
+                            <div class="p-3 rounded-lg border-2 {% if current_step >= 4 %}step-complete{% elif current_step == 3 %}step-active{% else %}step-pending{% endif %}">
+                                <div class="flex items-center mb-2">
+                                    <div class="step-icon {% if current_step >= 4 %}step-icon-complete{% elif current_step == 3 %}step-icon-active{% else %}step-icon-pending{% endif %} mr-2">
+                                        {% if current_step >= 4 %}✓{% else %}4{% endif %}
+                                    </div>
+                                    <span class="font-semibold text-sm">Delivered</span>
+                                </div>
+                                <p class="text-xs text-gray-600">Successfully delivered</p>
+                            </div>
+                        </div>
+
+                        <!-- NGO Controls for updating progress -->
+                        {% if session.get('user_type') == 'NGO' or session.get('user_role') == 'NGO' %}
+                        <div class="mt-4 flex gap-2">
+                            {% if current_step < 4 %}
+                            <button onclick="updateProgress({{ req.id }}, {{ current_step + 1 }})" 
+                                    class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm">
+                                ✓ Mark Step {{ current_step + 1 }} Complete
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <div class="progress-card text-center py-8">
+                    <p class="text-gray-500 text-lg">No active donations being tracked.</p>
+                    <p class="text-gray-400 mt-2">Donations will appear here once they are accepted by NGOs.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Transport Volunteers Section -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">🚴 Transport Volunteers</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% if collected_requests %}
+                    {% for req in collected_requests %}
+                    {% if req.volunteer_name %}
+                    <div class="volunteer-card">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-semibold text-gray-800">{{ req.volunteer_name }}</h4>
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">Active</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-1"><strong>Vehicle:</strong> {{ ['Bike', 'Scooty', 'Car', 'Van']|random }}</p>
+                        <p class="text-sm text-gray-600 mb-1"><strong>Phone:</strong> +91 {{ range(70000, 99999)|random }} {{ range(10000, 99999)|random }}</p>
+                        <p class="text-sm text-gray-600"><strong>Task:</strong> {{ req.food_donor_name }} → {{ req.ngo_name }}</p>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full text-center py-8 bg-white rounded-lg">
+                        <p class="text-gray-500">No active volunteers currently.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Map Section -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">🗺️ Live Map</h2>
+            <div class="progress-card">
+                <div id="map"></div>
+                <p class="text-sm text-gray-500 mt-2">Map updates automatically every 30 seconds</p>
+            </div>
+        </div>
+
+        <!-- Status Legend -->
+        <div class="progress-card">
+            <h3 class="text-xl font-semibold mb-4">Status Legend</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="flex items-center">
+                    <div class="step-icon step-icon-complete mr-2">✓</div>
+                    <span class="text-sm">Step Complete</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="step-icon step-icon-active mr-2">●</div>
+                    <span class="text-sm">Current Step</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="step-icon step-icon-pending mr-2">○</div>
+                    <span class="text-sm">Pending Step</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs mr-2">Active</span>
+                    <span class="text-sm">Volunteer Active</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map centered on Chennai
+        const map = L.map('map').setView([13.0827, 80.2707], 12);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Add sample markers for demo
+        const sampleLocations = [
+            { lat: 13.0827, lon: 80.2707, name: 'City Center', type: 'donor' },
+            { lat: 13.0900, lon: 80.2800, name: 'NGO Hub', type: 'ngo' },
+            { lat: 13.0750, lon: 80.2600, name: 'Volunteer 1', type: 'volunteer' }
+        ];
+
+        sampleLocations.forEach(loc => {
+            let color = loc.type === 'donor' ? 'blue' : (loc.type === 'ngo' ? 'violet' : 'red');
+            L.marker([loc.lat, loc.lon]).addTo(map)
+                .bindPopup(`<b>${loc.name}</b><br>Type: ${loc.type}`);
+        });
+
+        // Function to update progress step
+        function updateProgress(requestId, step) {
+            fetch('/update_progress_step', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ request_id: requestId, step: step })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Progress updated to step ' + step);
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('Error: ' + err);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -21,13 +21,16 @@ def create_assignment_tables():
         ngo_name TEXT,
         volunteer_id INTEGER,
         volunteer_name TEXT,
+        volunteer_phone TEXT,
+        volunteer_vehicle TEXT,
         food_donor_id INTEGER,
         food_donor_name TEXT,
         session_key TEXT,
         assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         request_status TEXT DEFAULT 'requested', -- 'requested', 'accepted', 'rejected'
         acceptance_time TIMESTAMP,
-        volunteer_allocated_time TIMESTAMP
+        volunteer_allocated_time TIMESTAMP,
+        progress_step INTEGER DEFAULT 0 -- 0=none, 1=packed, 2=volunteer_assigned, 3=near_ngo, 4=delivered
     )
     """)
 
@@ -46,6 +49,7 @@ def create_assignment_tables():
         volunteer_id INTEGER,
         volunteer_name TEXT,
         volunteer_allocated_time TIMESTAMP,
+        progress_step INTEGER DEFAULT 0, -- 0=none, 1=packed, 2=volunteer_assigned, 3=near_ngo, 4=delivered
         FOREIGN KEY (assignment_id) REFERENCES ngo_assignments(id)
     )
     """)
