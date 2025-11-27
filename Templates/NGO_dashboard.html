@@ -106,7 +106,15 @@
                             <h3 class="text-xl font-semibold text-gray-800">{{ donation.food_donor_name or 'Food Donor' }}</h3>
                             <span class="status-badge status-pending">Pending</span>
                         </div>
+                        {% if donation.distance_km is defined and donation.distance_km is not none %}
+                        <div class="mb-2">
+                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-semibold">📍 {{ "%.1f"|format(donation.distance_km) }} km away</span>
+                        </div>
+                        {% endif %}
                         <p class="text-gray-600 mb-2"><strong>Request ID:</strong> #{{ donation.id }}</p>
+                        {% if donation.pickup_location %}
+                        <p class="text-gray-600 mb-2"><strong>📍 Pickup Location:</strong> {{ donation.pickup_location }}</p>
+                        {% endif %}
                         <p class="text-gray-600 mb-2"><strong>Requested At:</strong> {{ donation.request_time or donation.assigned_at or 'N/A' }}</p>
                         <div class="mt-4 space-y-2">
                             <button class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" 

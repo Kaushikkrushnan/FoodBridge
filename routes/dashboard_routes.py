@@ -293,6 +293,7 @@ def donor_dashboard():
     print('[DEBUG] Session at donor_dashboard:', dict(session))
     """
     Render donor dashboard showing Available NGOs, Requested NGOs, Accepted NGOs.
+    NGOs are sorted by distance from the food donor's location (nearest first).
     """
     # Get user info from database session if available
     db_session_id = session.get('db_session_id')
@@ -322,6 +323,17 @@ def donor_dashboard():
             'user_registration': session.get('user_registration', ''),
             'user_verified': session.get('user_verified', False)
         }
+    
+    # Get donor's location for distance calculation
+    donor_lat = None
+    donor_lon = None
+    if current_donor_id:
+        app_conn = get_db_connection()
+        donor_row = app_conn.execute('SELECT pickup_lat, pickup_lon FROM food_donors WHERE id = ?', (current_donor_id,)).fetchone()
+        if donor_row:
+            donor_lat = donor_row['pickup_lat']
+            donor_lon = donor_row['pickup_lon']
+        app_conn.close()
     
     # Get NGOs from app.db
     app_conn = get_db_connection()
@@ -354,13 +366,20 @@ def donor_dashboard():
     
     assign_conn.close()
     
-    # Categorize NGOs
+    # Categorize NGOs and calculate distances
     available_ngos = []
     requested_ngos = []
     accepted_ngos = []
     
     for ngo in all_ngos:
         ngo_dict = dict(ngo)
+        
+        # Calculate distance if donor and NGO have coordinates
+        if donor_lat and donor_lon and ngo_dict.get('lat') and ngo_dict.get('lon'):
+            ngo_dict['distance_km'] = haversine(donor_lat, donor_lon, ngo_dict['lat'], ngo_dict['lon'])
+        else:
+            ngo_dict['distance_km'] = None
+        
         if ngo_dict['id'] in accepted_ngo_ids:
             # Find volunteer info for this NGO
             for a in accepted_assignments:
@@ -373,6 +392,9 @@ def donor_dashboard():
             requested_ngos.append(ngo_dict)
         else:
             available_ngos.append(ngo_dict)
+    
+    # Sort available NGOs by distance (nearest first), None values at end
+    available_ngos.sort(key=lambda x: (x['distance_km'] is None, x['distance_km'] or float('inf')))
 
     return render_template('Donor_dashboard.html', 
                          available_ngos=available_ngos, 
@@ -385,6 +407,7 @@ def donor_dashboard():
 def ngo_dashboard():
     """
     Render NGO dashboard showing Food Donors who requested this NGO.
+    Food donors are sorted by distance from the NGO's location (nearest first).
     """
     # Get user info from database session if available
     db_session_id = session.get('db_session_id')
@@ -415,11 +438,23 @@ def ngo_dashboard():
         }
     
     # If no ngo_id from session, try to look up by email
+    ngo_lat = None
+    ngo_lon = None
     if not ngo_id and ngo_email:
         app_conn = get_db_connection()
-        ngo_row = app_conn.execute('SELECT id FROM ngos WHERE email = ?', (ngo_email,)).fetchone()
+        ngo_row = app_conn.execute('SELECT id, lat, lon FROM ngos WHERE email = ?', (ngo_email,)).fetchone()
         if ngo_row:
             ngo_id = ngo_row['id']
+            ngo_lat = ngo_row['lat']
+            ngo_lon = ngo_row['lon']
+        app_conn.close()
+    elif ngo_id:
+        # Get NGO's location for distance calculation
+        app_conn = get_db_connection()
+        ngo_row = app_conn.execute('SELECT lat, lon FROM ngos WHERE id = ?', (ngo_id,)).fetchone()
+        if ngo_row:
+            ngo_lat = ngo_row['lat']
+            ngo_lon = ngo_row['lon']
         app_conn.close()
     
     from database.assignment_db import get_assignment_db_connection
@@ -454,8 +489,47 @@ def ngo_dashboard():
     
     conn.close()
 
-    available_donations_dict = [dict(row) for row in available_donations]
-    accepted_donations_dict = [dict(row) for row in accepted_donations]
+    # Convert to dicts and add location info from food_donors table
+    app_conn = get_db_connection()
+    
+    available_donations_dict = []
+    for row in available_donations:
+        donation = dict(row)
+        # Get donor's location from food_donors table
+        donor = app_conn.execute('''
+            SELECT pickup_lat, pickup_lon, pickup_location, address
+            FROM food_donors WHERE id = ?
+        ''', (donation['food_donor_id'],)).fetchone()
+        if donor:
+            donation['pickup_location'] = donor['pickup_location'] or donor['address'] or 'N/A'
+            # Calculate distance if both NGO and donor have coordinates
+            if ngo_lat and ngo_lon and donor['pickup_lat'] and donor['pickup_lon']:
+                donation['distance_km'] = haversine(ngo_lat, ngo_lon, donor['pickup_lat'], donor['pickup_lon'])
+            else:
+                donation['distance_km'] = None
+        else:
+            donation['pickup_location'] = 'N/A'
+            donation['distance_km'] = None
+        available_donations_dict.append(donation)
+    
+    accepted_donations_dict = []
+    for row in accepted_donations:
+        donation = dict(row)
+        # Get donor's location from food_donors table
+        donor = app_conn.execute('''
+            SELECT pickup_lat, pickup_lon, pickup_location, address
+            FROM food_donors WHERE id = ?
+        ''', (donation['food_donor_id'],)).fetchone()
+        if donor:
+            donation['pickup_location'] = donor['pickup_location'] or donor['address'] or 'N/A'
+        else:
+            donation['pickup_location'] = 'N/A'
+        accepted_donations_dict.append(donation)
+    
+    app_conn.close()
+    
+    # Sort available donations by distance (nearest first), None values at end
+    available_donations_dict.sort(key=lambda x: (x['distance_km'] is None, x['distance_km'] or float('inf')))
 
     return render_template('NGO_dashboard.html', 
                          available_donations=available_donations_dict, 
