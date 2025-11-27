@@ -254,6 +254,32 @@
                         placeholder="Enter your complete address for pickup coordination"></textarea>
                 </div>
                 
+                {% if use_mock_auth %}
+                <div class="section-divider">
+                    <span>Create Password</span>
+                </div>
+                
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="password">Password</label>
+                        <div class="input-icon-wrapper">
+                            <span>🔒</span>
+                            <input type="password" name="password" id="password" required 
+                                minlength="6" placeholder="Min 6 characters" />
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="confirm_password">Confirm Password</label>
+                        <div class="input-icon-wrapper">
+                            <span>🔒</span>
+                            <input type="password" id="confirm_password" required 
+                                minlength="6" placeholder="Confirm password" />
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
                 <button type="submit" class="btn-submit">
                     🚀 Complete Registration
                 </button>
@@ -265,5 +291,19 @@
             </div>
         </div>
     </div>
+    
+    {% if use_mock_auth %}
+    <script>
+        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            if (password !== confirmPassword) {
+                e.preventDefault();
+                alert('Passwords do not match!');
+                return false;
+            }
+        });
+    </script>
+    {% endif %}
 </body>
 </html>
