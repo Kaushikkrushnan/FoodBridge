@@ -126,13 +126,19 @@ def mock_register(user_data, role):
                 conn.close()
                 return {'success': False, 'message': 'Email already registered'}
             
+            # Default values for NOT NULL columns that will be updated when donor creates a donation
+            DEFAULT_FOOD_TYPE = 'Not specified'
+            DEFAULT_QUANTITY = 'Not specified'
+            address = user_data.get('address', 'Not specified')
+            
             cursor = conn.execute('''
                 INSERT INTO food_donors (organization_name, email, phone, whatsapp_phone, 
-                                        vehicle_type, address, password_hash, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                                        vehicle_type, address, food_type, quantity, 
+                                        pickup_location, password_hash, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ''', (user_data.get('name'), user_data.get('email'), user_data.get('phone'),
                   user_data.get('whatsapp_phone'), user_data.get('vehicle_type'),
-                  user_data.get('address'), password_hash))
+                  address, DEFAULT_FOOD_TYPE, DEFAULT_QUANTITY, address, password_hash))
             conn.commit()
             user_id = cursor.lastrowid
             conn.close()
