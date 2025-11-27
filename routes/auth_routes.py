@@ -494,7 +494,7 @@ def volunteer_login():
 
         try:
             # Authenticate with Firebase
-            user = auth.get_user_by_email(email)
+            user = firebase_auth.get_user_by_email(email)
             # Here you might verify password with Firebase Auth SDK or client-side
             
             # Verify user exists in volunteer database
