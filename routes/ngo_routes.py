@@ -3,7 +3,7 @@ NGO routes for food request management and volunteer rating
 """
 from flask import Blueprint, request, jsonify, session
 from db import get_db_connection
-from database.assignment_db import insert_ngo_assignment, insert_food_donor_request
+from database.assignment_db import get_assignment_db_connection
 
 ngo_bp = Blueprint('ngo', __name__)
 
