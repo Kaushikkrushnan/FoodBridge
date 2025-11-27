@@ -1,130 +1,69 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>NGO Dashboard - FoodBridge</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
-    <link rel="stylesheet" href="/static/css/style.css">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .dashboard-container {
-            background: #f0f9ff;
-            border-radius: 20px;
-            padding: 2rem;
-            margin: 1rem;
-        }
-        .status-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 12px;
-            font-size: 0.875rem;
-            font-weight: 600;
-        }
-        .status-pending {
-            background: #fef3c7;
-            color: #92400e;
-        }
-        .status-accepted {
-            background: #d1fae5;
-            color: #065f46;
-        }
-        .donation-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
-        }
-        .donation-card:hover {
-            transform: translateY(-2px);
-        }
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .modal-content {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            max-width: 500px;
-            width: 90%;
-            position: relative;
-        }
-        .modal-close {
-            position: absolute;
-            top: 10px;
-            right: 15px;
-            font-size: 24px;
-            cursor: pointer;
-        }
-    </style>
-</head>
-<body>
-    <!-- Top-right user info display -->
-    <div style="position: fixed; top: 10px; right: 20px; z-index: 100;">
-        {% if user_name %}
-            <div class="bg-green-600 text-white px-4 py-2 rounded shadow-lg">
-                Logged in as: <b>{{ user_name }}</b> (NGO)
-            </div>
-        {% endif %}
-    </div>
-
-    <div class="dashboard-container max-w-7xl mx-auto">
-        <!-- Header Section -->
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-800 mb-2">🏢 NGO Dashboard</h1>
-            <p class="text-lg text-gray-600">Manage food donation requests from donors</p>
+{% extends 'base.html' %}
+{% block title %}NGO Dashboard{% endblock %}
+{% block content %}
+    <div class="container mx-auto py-8">
+        <h1 class="text-4xl font-bold mb-8 text-center">NGO Dashboard</h1>
+        
+        <!-- User Location Display -->
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-8 text-center max-w-2xl mx-auto">
+            <p class="text-lg text-green-800">
+                📍 <strong>Your Location:</strong> {{ user_location_text or 'Location not set' }}
+            </p>
         </div>
 
-        <!-- Navigation -->
-        <nav class="flex justify-center gap-4 mb-8 flex-wrap">
-            <a href="{{ url_for('index') }}" class="btn bg-blue-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-blue-700 transition duration-300">Home</a>
-            <a href="{{ url_for('dashboard.ngo_my_accepted_donations') }}" class="btn bg-purple-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-purple-700 transition duration-300">My Accepted Donations</a>
-            <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">📍 Live Progress Tracking</a>
-        </nav>
-
-        <!-- Pending Food Donor Requests Section -->
         <div class="mb-12">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">📋 Pending Food Donor Requests</h2>
-            <p class="text-gray-600 mb-4">These food donors have selected your NGO for donation. Accept to proceed.</p>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="pending-donations-grid">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Available Food Donations</h2>
+            <p class="text-gray-600 mb-4">Sorted by distance (nearest first)</p>
+            <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="available-donations-grid">
                 {% if available_donations %}
                     {% for donation in available_donations %}
-                    <div class="donation-card" data-id="{{ donation.id }}">
-                        <div class="flex justify-between items-start mb-3">
-                            <h3 class="text-xl font-semibold text-gray-800">{{ donation.food_donor_name or 'Food Donor' }}</h3>
-                            <span class="status-badge status-pending">Pending</span>
+                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
+                         data-id="{{ donation.id }}"
+                         data-donor-name="{{ donation.food_donor_name or donation.donor_name or '' }}"
+                         data-food-type="{{ donation.food_type or '' }}"
+                         data-quantity="{{ donation.quantity or '' }}"
+                         data-pickup-location="{{ donation.pickup_location or '' }}"
+                         data-pickup-time="{{ donation.pickup_time or '' }}"
+                         data-cuisine="{{ donation.cuisine_type or '' }}"
+                         data-spice="{{ donation.spice_level or '' }}"
+                         data-spec="{{ donation.food_category or '' }}"
+                         data-distance="{{ donation.distance_km or '' }}"
+                         data-eta="{{ donation.eta_minutes or '' }}"
+                         data-location="{{ donation.location_text or '' }}">
+                        <h3 class="text-2xl font-semibold mb-2">{{ donation.food_donor_name or donation.donor_name or 'Anonymous' }}</h3>
+                        <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
+                        <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
+                        <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
+                        <p><strong>Pickup Time:</strong> {{ donation.pickup_time or 'N/A' }}</p>
+                        
+                        <!-- Location, Distance, and ETA -->
+                        <div class="mt-3 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-700">📍 <strong>Location:</strong> {{ donation.location_text or 'Location not set' }}</p>
+                            <p class="text-sm text-gray-700">📏 <strong>Distance:</strong> 
+                                {% if donation.distance_km is not none %}
+                                    {{ donation.distance_km }} km
+                                {% else %}
+                                    Location not set
+                                {% endif %}
+                            </p>
+                            <p class="text-sm text-gray-700">⏱ <strong>ETA:</strong> 
+                                {% if donation.eta_minutes is not none %}
+                                    {% if donation.eta_minutes == 0 %}
+                                        < 1 minute
+                                    {% elif donation.eta_minutes == 1 %}
+                                        1 minute
+                                    {% else %}
+                                        {{ donation.eta_minutes }} minutes
+                                    {% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </p>
                         </div>
-                        {% if donation.distance_km is defined and donation.distance_km is not none %}
-                        <div class="mb-2">
-                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-semibold">📍 {{ "%.1f"|format(donation.distance_km) }} km away</span>
-                        </div>
-                        {% endif %}
-                        <p class="text-gray-600 mb-2"><strong>Request ID:</strong> #{{ donation.id }}</p>
-                        {% if donation.pickup_location %}
-                        <p class="text-gray-600 mb-2"><strong>📍 Pickup Location:</strong> {{ donation.pickup_location }}</p>
-                        {% endif %}
-                        <p class="text-gray-600 mb-2"><strong>Requested At:</strong> {{ donation.request_time or donation.assigned_at or 'N/A' }}</p>
-                        <div class="mt-4 space-y-2">
-                            <button class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" 
-                                    onclick="acceptDonation({{ donation.id }}, '{{ donation.food_donor_name }}')">
-                                ✅ Accept & Assign Volunteer
-                            </button>
-                            <button class="w-full bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500 transition"
-                                    onclick="rejectDonation({{ donation.id }})">
-                                ❌ Reject
-                            </button>
+                        
+                        <span class="status-badge status-available mt-3">Available</span>
+                        <div class="mt-4">
+                            <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="acceptDonationBackend({{ donation.id }})">Review & Accept</button>
                         </div>
                     </div>
                     {% endfor %}
@@ -144,20 +83,51 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="accepted-donations-grid">
                 {% if accepted_donations %}
                     {% for donation in accepted_donations %}
-                    <div class="donation-card border-2 border-green-300">
-                        <div class="flex justify-between items-start mb-3">
-                            <h3 class="text-xl font-semibold text-gray-800">{{ donation.food_donor_name or 'Food Donor' }}</h3>
-                            <span class="status-badge status-accepted">Accepted</span>
+                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
+                         data-id="{{ donation.id }}"
+                         data-donor-name="{{ donation.food_donor_name or donation.donor_name or '' }}"
+                         data-food-type="{{ donation.food_type or '' }}"
+                         data-quantity="{{ donation.quantity or '' }}"
+                         data-pickup-location="{{ donation.pickup_location or '' }}"
+                         data-pickup-time="{{ donation.pickup_time or '' }}"
+                         data-cuisine="{{ donation.cuisine_type or '' }}"
+                         data-spice="{{ donation.spice_level or '' }}"
+                         data-spec="{{ donation.food_category or '' }}"
+                         data-distance="{{ donation.distance_km or '' }}"
+                         data-eta="{{ donation.eta_minutes or '' }}"
+                         data-location="{{ donation.location_text or '' }}">
+                        <h3 class="text-2xl font-semibold mb-2">{{ donation.food_donor_name or donation.donor_name or 'Anonymous' }}</h3>
+                        <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
+                        <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
+                        <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
+                        <p><strong>Pickup Time:</strong> {{ donation.pickup_time or 'N/A' }}</p>
+                        
+                        <!-- Location, Distance, and ETA -->
+                        <div class="mt-3 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-700">📍 <strong>Location:</strong> {{ donation.location_text or 'Location not set' }}</p>
+                            <p class="text-sm text-gray-700">📏 <strong>Distance:</strong> 
+                                {% if donation.distance_km is not none %}
+                                    {{ donation.distance_km }} km
+                                {% else %}
+                                    Location not set
+                                {% endif %}
+                            </p>
+                            <p class="text-sm text-gray-700">⏱ <strong>ETA:</strong> 
+                                {% if donation.eta_minutes is not none %}
+                                    {% if donation.eta_minutes == 0 %}
+                                        < 1 minute
+                                    {% elif donation.eta_minutes == 1 %}
+                                        1 minute
+                                    {% else %}
+                                        {{ donation.eta_minutes }} minutes
+                                    {% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </p>
                         </div>
-                        <p class="text-gray-600 mb-2"><strong>Request ID:</strong> #{{ donation.id }}</p>
-                        <p class="text-gray-600 mb-2"><strong>Accepted At:</strong> {{ donation.acceptance_time or 'N/A' }}</p>
-                        <div class="bg-blue-50 p-3 rounded-lg mt-3">
-                            <p class="text-blue-800 font-semibold">🚴 Assigned Volunteer</p>
-                            <p class="text-blue-600">{{ donation.volunteer_name or 'Pending Assignment' }}</p>
-                            {% if donation.volunteer_allocated_time %}
-                            <p class="text-blue-500 text-sm">Assigned at: {{ donation.volunteer_allocated_time }}</p>
-                            {% endif %}
-                        </div>
+                        
+                        <span class="status-badge status-active mt-3">Accepted</span>
                         <div class="mt-4">
                             <a href="{{ url_for('dashboard.progress') }}" 
                                class="w-full block text-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
@@ -174,6 +144,15 @@
                 {% endif %}
             </div>
         </div>
+        <!-- Request Details Modal -->
+        <div id="request-modal" class="modal" style="display:none;">
+            <div class="modal-content bg-white rounded-lg shadow-2xl">
+                <span class="modal-close absolute top-4 right-5 text-3xl font-bold text-gray-500 hover:text-red-600 cursor-pointer" onclick="closeRequestModal()">&times;</span>
+                <div id="request-modal-body">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Confirmation Modal -->
@@ -187,11 +166,28 @@
     </div>
 
     <script>
-        function acceptDonation(requestId, donorName) {
-            if (!confirm(`Accept donation from "${donorName}" and assign a volunteer?`)) {
-                return;
-            }
-            
+        function getDonationFromDom(donationId) {
+            const card = document.querySelector('.donation-card[data-id="' + donationId + '"]');
+            if (!card) return null;
+            return {
+                id: donationId,
+                donor_name: card.dataset.donorName || 'Anonymous',
+                food_type: card.dataset.foodType || 'N/A',
+                quantity: card.dataset.quantity || 'N/A',
+                pickup_location: card.dataset.pickupLocation || 'N/A',
+                pickup_time: card.dataset.pickupTime || 'N/A',
+                food_category: card.dataset.spec || '',
+                spice_level: card.dataset.spice || '',
+                cuisine_type: card.dataset.cuisine || ''
+            };
+        }
+
+        function closeRequestModal() {
+            document.getElementById('request-modal').style.display = 'none';
+        }
+
+        function acceptDonationBackend(requestId) {
+            console.log('[DEBUG] acceptDonationBackend called with requestId:', requestId);
             fetch('/ngo_accept_donation', {
                 method: 'POST',
                 headers: {
@@ -213,12 +209,43 @@
             });
         }
 
-        function rejectDonation(requestId) {
-            if (!confirm('Are you sure you want to reject this donation request?')) {
+        function viewAcceptedDonation(donationId) {
+            const donation = getDonationFromDom(donationId);
+            if (!donation) {
+                console.error('Donation not found');
                 return;
             }
-            // For now, just reload - can implement rejection logic later
-            alert('Rejection feature coming soon.');
+            const modalBody = document.getElementById('request-modal-body');
+            let icons = '';
+            if (donation.food_category === 'vegetarian') icons += '<span title="Vegetarian">🥦</span> ';
+            if (donation.food_category === 'low_sugar') icons += '<span title="Low Sugar">🍰</span> ';
+            if (donation.food_category === 'non_vegetarian') icons += '<span title="Non-Vegetarian">🍗</span> ';
+            if (donation.spice_level === 'spicy') icons += '<span title="Spicy">🌶️</span> ';
+            if (donation.spice_level === 'medium') icons += '<span title="Medium">🔥</span> ';
+            if (donation.spice_level === 'mild') icons += '<span title="Mild">🧊</span> ';
+            if (donation.cuisine_type === 'south_indian') icons += '<span title="South Indian">🍛</span> ';
+            if (donation.cuisine_type === 'north_indian') icons += '<span title="North Indian">🥘</span> ';
+            if (donation.cuisine_type === 'chinese') icons += '<span title="Chinese">🍜</span> ';
+            if (donation.cuisine_type === 'italian') icons += '<span title="Italian">🍝</span> ';
+            if (donation.cuisine_type === 'western') icons += '<span title="Western">🍔</span> ';
+            const escapeHtml = (text) => {
+                if (!text) return 'N/A';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            };
+            modalBody.innerHTML =
+                '<h2 class="text-3xl font-bold mb-4">Accepted Donation Details</h2>' +
+                '<p class="text-lg mb-2"><strong>Donor:</strong> ' + escapeHtml(donation.donor_name) + '</p>' +
+                '<p class="text-lg mb-2"><strong>Food Type:</strong> ' + escapeHtml(donation.food_type) + '</p>' +
+                '<p class="text-lg mb-2"><strong>Quantity:</strong> ' + escapeHtml(donation.quantity) + '</p>' +
+                '<p class="text-lg mb-2"><strong>Pickup Location:</strong> ' + escapeHtml(donation.pickup_location) + '</p>' +
+                '<p class="text-lg mb-2"><strong>Pickup Time:</strong> ' + escapeHtml(donation.pickup_time) + '</p>' +
+                '<p class="text-lg mb-2"><strong>Status:</strong> Accepted</p>' +
+                '<div class="food-icons" style="margin: 1rem 0;">' + (icons || '<span>No special tags</span>') + '</div>' +
+                '<hr class="my-6">' +
+                '<p class="text-center text-green-600 font-semibold">This donation has been accepted!</p>';
+            document.getElementById('request-modal').style.display = 'block';
         }
 
         function closeModal() {
@@ -232,5 +259,4 @@
             }
         };
     </script>
-</body>
-</html>
+{% endblock %}

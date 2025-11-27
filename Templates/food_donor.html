@@ -174,8 +174,5 @@
 			Thank you for your generosity!
 		</div>
 	</div>
-    <a href="{{ url_for('auth.food_donor_login') }}" class="food-donor-login-key" title="Food Donor Login">
-        <button type="button" class="food-donor-login-key {% if session.get('user_contact') %}disabled-button{% endif %}" {% if session.get('user_contact') %}disabled{% endif %}>Food Donor Login</button>
-    </a>
 </body>
 </html>

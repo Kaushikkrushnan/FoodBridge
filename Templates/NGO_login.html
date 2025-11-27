@@ -11,7 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script>
         // Firebase config from Flask
-        const firebaseConfig = {{ firebase_config | tojson }};
+        const firebaseConfig = {{ firebase_config | tojson | safe }};
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
@@ -151,6 +151,7 @@
             <a href="{{ url_for('index') }}" class="btn" style="background: var(--text-muted); color: white;">Back to Home</a>
         </div>
     </div>
+    <!-- Place script at the end of body for guaranteed execution -->
 
     {% if not use_mock_auth %}
     <script>

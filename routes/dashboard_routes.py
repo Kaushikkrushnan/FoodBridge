@@ -6,6 +6,7 @@ from db import get_db_connection, get_auth_db_connection
 from database.session_manager import get_user_from_session, update_session_activity
 import random
 import math
+from utils.distance_utils import add_distance_and_eta
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -335,14 +336,6 @@ def donor_dashboard():
             donor_lon = donor_row['pickup_lon']
         app_conn.close()
     
-    # Get NGOs from app.db
-    app_conn = get_db_connection()
-    all_ngos = app_conn.execute('''
-        SELECT id, name, email, registration_number, verified, lat, lon, address
-        FROM ngos ORDER BY name
-    ''').fetchall()
-    app_conn.close()
-    
     # Get assignments from assignment.db to categorize NGOs
     from database.assignment_db import get_assignment_db_connection
     assign_conn = get_assignment_db_connection()
@@ -365,21 +358,46 @@ def donor_dashboard():
     accepted_ngo_ids = set(a['ngo_id'] for a in accepted_assignments)
     
     assign_conn.close()
-    
-    # Categorize NGOs and calculate distances
+
+    # Get NGOs from auth.db
+    auth_conn = get_auth_db_connection()
+    all_ngos = auth_conn.execute('''
+        SELECT id, name, email, registration_number, verified, lat, lng, location_text
+        FROM users
+        ORDER BY name
+    ''').fetchall()
+    auth_conn.close()
+
+    # Get donor's location from food_donors table
+    app_conn = get_db_connection()
+    donor_lat = None
+    donor_lng = None
+    donor_location_text = "Location not set"
+    if current_donor_name:
+        donor_location = app_conn.execute('''
+            SELECT lat, lng, location_text, pickup_location
+            FROM food_donors
+            WHERE organization_name = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+        ''', (current_donor_name,)).fetchone()
+        if donor_location:
+            donor_lat = donor_location['lat']
+            donor_lng = donor_location['lng']
+            donor_location_text = donor_location['location_text'] or donor_location['pickup_location'] or "Location not set"
+    app_conn.close()
+
     available_ngos = []
     requested_ngos = []
     accepted_ngos = []
     
-    for ngo in all_ngos:
-        ngo_dict = dict(ngo)
-        
-        # Calculate distance if donor and NGO have coordinates
-        if donor_lat and donor_lon and ngo_dict.get('lat') and ngo_dict.get('lon'):
-            ngo_dict['distance_km'] = haversine(donor_lat, donor_lon, ngo_dict['lat'], ngo_dict['lon'])
-        else:
-            ngo_dict['distance_km'] = None
-        
+    # Convert all_ngos to dicts
+    all_ngos_dicts = [dict(ngo) for ngo in all_ngos]
+    
+    # Add distance and ETA
+    all_ngos_dicts = add_distance_and_eta(all_ngos_dicts, donor_lat, donor_lng, lat_field='lat', lon_field='lng')
+    
+    for ngo_dict in all_ngos_dicts:
         if ngo_dict['id'] in accepted_ngo_ids:
             # Find volunteer info for this NGO
             for a in accepted_assignments:
@@ -396,6 +414,25 @@ def donor_dashboard():
     # Sort available NGOs by distance (nearest first), None values at end
     available_ngos.sort(key=lambda x: (x['distance_km'] is None, x['distance_km'] or float('inf')))
 
+    # Fetch food donations submitted by current donor from food_donors table
+    app_conn = get_db_connection()
+    if current_donor_name:
+        donor_food_donations = app_conn.execute('''
+            SELECT id, organization_name, food_type, quantity, ready_for_pickup_time, pickup_location,
+                   category, cuisine_type, spice_level, created_at
+            FROM food_donors
+            WHERE organization_name = ?
+            ORDER BY created_at DESC
+        ''', (current_donor_name,)).fetchall()
+        donor_food_donations = [dict(row) for row in donor_food_donations]
+    else:
+        donor_food_donations = []
+    app_conn.close()
+
+    # Add donor location info to user_info
+    user_info['user_lat'] = donor_lat
+    user_info['user_lng'] = donor_lng
+    user_info['user_location_text'] = donor_location_text
     return render_template('Donor_dashboard.html', 
                          available_ngos=available_ngos, 
                          requested_ngos=requested_ngos, 
@@ -459,77 +496,96 @@ def ngo_dashboard():
     
     from database.assignment_db import get_assignment_db_connection
     conn = get_assignment_db_connection()
-
-    # Get pending food donor requests for this NGO
-    available_donations = []
-    accepted_donations = []
-    
-    if ngo_id:
-        # Pending requests
-        available_donations = conn.execute('''
-            SELECT r.id, r.food_donor_id, r.food_donor_name, r.ngo_id, r.ngo_name, 
-                   r.status, r.ngo_acceptance_status, r.request_time,
-                   a.assigned_at
-            FROM food_donor_requests r
-            LEFT JOIN ngo_assignments a ON r.assignment_id = a.id
-            WHERE r.ngo_id = ? AND r.ngo_acceptance_status = 'pending'
-            ORDER BY r.request_time DESC
-        ''', (ngo_id,)).fetchall()
-        
-        # Accepted requests with volunteer info
-        accepted_donations = conn.execute('''
-            SELECT r.id, r.food_donor_id, r.food_donor_name, r.ngo_id, r.ngo_name,
-                   r.status, r.ngo_acceptance_status, r.volunteer_id, r.volunteer_name,
-                   r.volunteer_allocated_time, a.acceptance_time
-            FROM food_donor_requests r
-            LEFT JOIN ngo_assignments a ON r.assignment_id = a.id
-            WHERE r.ngo_id = ? AND r.ngo_acceptance_status = 'accepted'
-            ORDER BY a.acceptance_time DESC
-        ''', (ngo_id,)).fetchall()
-    
-    conn.close()
-
-    # Convert to dicts and add location info from food_donors table
     app_conn = get_db_connection()
+    auth_conn = get_auth_db_connection()
+
+    ngo_id = user_info.get('user_id')
     
-    available_donations_dict = []
-    for row in available_donations:
-        donation = dict(row)
-        # Get donor's location from food_donors table
-        donor = app_conn.execute('''
-            SELECT pickup_lat, pickup_lon, pickup_location, address
-            FROM food_donors WHERE id = ?
-        ''', (donation['food_donor_id'],)).fetchone()
-        if donor:
-            donation['pickup_location'] = donor['pickup_location'] or donor['address'] or 'N/A'
-            # Calculate distance if both NGO and donor have coordinates
-            if ngo_lat and ngo_lon and donor['pickup_lat'] and donor['pickup_lon']:
-                donation['distance_km'] = haversine(ngo_lat, ngo_lon, donor['pickup_lat'], donor['pickup_lon'])
+    # Get NGO's location from auth.db users table
+    ngo_lat = None
+    ngo_lng = None
+    ngo_location_text = "Location not set"
+    if ngo_id:
+        ngo_location = auth_conn.execute('''
+            SELECT lat, lng, location_text
+            FROM users
+            WHERE id = ?
+        ''', (ngo_id,)).fetchone()
+        if ngo_location:
+            ngo_lat = ngo_location['lat']
+            ngo_lng = ngo_location['lng']
+            ngo_location_text = ngo_location['location_text'] or "Location not set"
+
+    # Show all food donors assigned to this NGO from both tables
+    available_donations = conn.execute('''
+        SELECT a.id, a.food_donor_id, a.food_donor_name, a.ngo_id, a.ngo_name, r.status, r.ngo_acceptance_status, a.assigned_at
+        FROM ngo_assignments a
+        LEFT JOIN food_donor_requests r ON a.id = r.assignment_id
+        WHERE a.ngo_id = ? AND (r.status IS NULL OR r.status = 'pending')
+        ORDER BY a.assigned_at DESC
+    ''', (ngo_id,)).fetchall() if ngo_id else []
+    available_donations_dict = [dict(row) for row in available_donations]
+
+    accepted_donations = conn.execute('''
+        SELECT a.id, a.food_donor_id, a.food_donor_name, a.ngo_id, a.ngo_name, r.status, r.ngo_acceptance_status, a.acceptance_time
+        FROM ngo_assignments a
+        LEFT JOIN food_donor_requests r ON a.id = r.assignment_id
+        WHERE a.ngo_id = ? AND r.status = 'accepted'
+        ORDER BY a.acceptance_time DESC
+    ''', (ngo_id,)).fetchall() if ngo_id else []
+    accepted_donations_dict = [dict(row) for row in accepted_donations]
+    
+    # Collect all donor IDs for batch lookup
+    all_donations = available_donations_dict + accepted_donations_dict
+    donor_ids = list(set(d.get('food_donor_id') for d in all_donations if d.get('food_donor_id')))
+    
+    # Batch fetch donor location data
+    donor_locations = {}
+    if donor_ids:
+        placeholders = ','.join('?' * len(donor_ids))
+        donors_info = app_conn.execute(f'''
+            SELECT id, lat, lng, location_text, pickup_location
+            FROM food_donors
+            WHERE id IN ({placeholders})
+        ''', donor_ids).fetchall()
+        for donor in donors_info:
+            donor_locations[donor['id']] = {
+                'lat': donor['lat'],
+                'lng': donor['lng'],
+                'location_text': donor['location_text'] or donor['pickup_location'] or "Location not set"
+            }
+    
+    # Helper function to add location info to donations
+    def add_location_info_to_donations(donations):
+        for donation in donations:
+            donor_id = donation.get('food_donor_id')
+            if donor_id and donor_id in donor_locations:
+                donation['lat'] = donor_locations[donor_id]['lat']
+                donation['lng'] = donor_locations[donor_id]['lng']
+                donation['location_text'] = donor_locations[donor_id]['location_text']
             else:
-                donation['distance_km'] = None
-        else:
-            donation['pickup_location'] = 'N/A'
-            donation['distance_km'] = None
-        available_donations_dict.append(donation)
+                donation['lat'] = None
+                donation['lng'] = None
+                donation['location_text'] = "Location not set"
     
-    accepted_donations_dict = []
-    for row in accepted_donations:
-        donation = dict(row)
-        # Get donor's location from food_donors table
-        donor = app_conn.execute('''
-            SELECT pickup_lat, pickup_lon, pickup_location, address
-            FROM food_donors WHERE id = ?
-        ''', (donation['food_donor_id'],)).fetchone()
-        if donor:
-            donation['pickup_location'] = donor['pickup_location'] or donor['address'] or 'N/A'
-        else:
-            donation['pickup_location'] = 'N/A'
-        accepted_donations_dict.append(donation)
+    # Add location info to both lists
+    add_location_info_to_donations(available_donations_dict)
+    add_location_info_to_donations(accepted_donations_dict)
     
+    # Add distance and ETA to donations based on NGO's location, sorted by distance (nearest first)
+    available_donations_dict = add_distance_and_eta(available_donations_dict, ngo_lat, ngo_lng, lat_field='lat', lon_field='lng')
+    
+    # Add distance and ETA to accepted donations
+    accepted_donations_dict = add_distance_and_eta(accepted_donations_dict, ngo_lat, ngo_lng, lat_field='lat', lon_field='lng')
+
+    conn.close()
     app_conn.close()
-    
-    # Sort available donations by distance (nearest first), None values at end
-    available_donations_dict.sort(key=lambda x: (x['distance_km'] is None, x['distance_km'] or float('inf')))
+    auth_conn.close()
+
+    # Add NGO location info to user_info
+    user_info['user_lat'] = ngo_lat
+    user_info['user_lng'] = ngo_lng
+    user_info['user_location_text'] = ngo_location_text
 
     return render_template('NGO_dashboard.html', 
                          available_donations=available_donations_dict, 
@@ -664,6 +720,7 @@ def progress():
 
     from database.assignment_db import get_assignment_db_connection
     conn = get_assignment_db_connection()
+    app_conn = get_db_connection()
 
     # Get food donor requests categorized by status
     assigned_requests = conn.execute("""
@@ -691,7 +748,7 @@ def progress():
         ORDER BY r.id DESC
     """).fetchall()
 
-    # Get unique NGOs involved in these requests - from app.db
+    # Get unique NGOs involved in these requests from app.db
     ngo_ids = list(set(req['ngo_id'] for req in assigned_requests + collected_requests + in_transit_requests + delivered_requests if req['ngo_id']))
     ngos = []
     if ngo_ids:
@@ -705,14 +762,13 @@ def progress():
         ''', ngo_ids).fetchall()
         app_conn.close()
 
-    # Get all volunteers for admin view - from app.db
-    app_conn = get_db_connection()
+    # Get all volunteers from app.db
     volunteers = app_conn.execute('''
         SELECT * FROM volunteers ORDER BY name
     ''').fetchall()
     app_conn.close()
 
-    # Get all food donors (from food_donor_requests table)
+    # Get all food donors (from food_donor_requests table in assignment.db)
     donors = conn.execute('''
         SELECT DISTINCT food_donor_name, COUNT(*) as total_donations,
                COUNT(CASE WHEN status IN ('pending', 'accepted', 'in_transit', 'delivered') THEN 1 END) as active_donations
@@ -725,6 +781,7 @@ def progress():
     complaints = [{'message': 'No complaints reported', 'count': 0}]
 
     conn.close()
+    app_conn.close()
 
     # Convert to list of dicts and add mock ETA
     def process_requests(rows):
@@ -821,7 +878,7 @@ def volunteer_dashboard():
     assigned_requests_dict = [dict(row) for row in assigned_requests]
     completed_deliveries_dict = [dict(row) for row in completed_deliveries]
 
-    return render_template('volunteer_dashboard.html',
+    return render_template('volunteers/volunteer_dashboard.html',
                          assigned_requests=assigned_requests_dict,
                          completed_deliveries=completed_deliveries_dict,
                          **user_info)

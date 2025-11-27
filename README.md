@@ -1,139 +1,186 @@
-# FoodBridge
+# FoodBridge - Surplus-to-NGO Connector
 
-Building a digital platform to connect surplus food sources with NGOs for real-time redistribution and waste reduction.
+A platform that bridges surplus food providers and NGOs in real time, helping reduce food waste while feeding more people.
 
-## 🚀 Features
+## Overview
 
-### User Types
-- **Food Donors**: Restaurants, bakeries, or individuals with surplus food
-- **NGOs**: Organizations that collect and distribute food to those in need
-- **Volunteers**: Transport volunteers who pick up and deliver food donations
+FoodBridge connects three key stakeholders:
+- **Food Donors**: Restaurants, bakeries, and organizations with surplus food
+- **NGOs**: Non-profit organizations that distribute food to those in need
+- **Volunteers**: Individuals who help with food pickup and delivery
 
-### Key Functionality
-- **Authentication System**: Separate login/registration for Food Donors, NGOs, and Volunteers
-- **Food Donor Dashboard**: View available NGOs, request donations, track accepted requests
-- **NGO Dashboard**: View pending food donation requests, accept donations, auto-assign volunteers
-- **Volunteer Assignment**: Automatic assignment using Haversine formula for distance calculation
-- **Live Progress Tracking**: Real-time tracking of donation status from pickup to delivery
+## Features
 
-## 📋 Prerequisites
+### For Food Donors
+- Register and submit food donations with details (type, quantity, pickup time/location)
+- Select food specifications (vegetarian/non-vegetarian, cuisine type, spice level)
+- View and accept NGO requests
+- Track donation status
 
+### For NGOs
+- Register with Firebase authentication
+- View available food donations
+- Accept donations and coordinate pickup
+- Rate volunteers after delivery
+
+### For Volunteers
+- Register and login via Firebase
+- View assigned deliveries
+- Update delivery status (collected, in-transit, delivered)
+- Track location for live updates
+
+### Live Tracking
+- Real-time volunteer location tracking
+- Progress monitoring for food donations
+- Status updates throughout the delivery process
+
+## Screenshots
+
+### Homepage
+![Homepage](https://github.com/user-attachments/assets/df1fd485-c128-46c2-96ce-b0169a0fea4d)
+
+### Donor Dashboard
+![Donor Dashboard](https://github.com/user-attachments/assets/38ffadd1-381f-4b61-a34a-1bfbe1597936)
+
+### Food Donor Portal
+![Food Donor Portal](https://github.com/user-attachments/assets/b8f9f618-0d44-46a8-8aae-1b3df8dc7ae0)
+
+### NGO Dashboard
+![NGO Dashboard](https://github.com/user-attachments/assets/4f503c6e-73db-4627-9dc3-714acece04a5)
+
+## Getting Started
+
+### Prerequisites
 - Python 3.8+
 - pip (Python package manager)
-- SQLite (included with Python)
 
-## 🛠️ Installation
+### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Kaushikkrushnan/FoodBridge.git
-   cd FoodBridge
-   ```
+1. Clone the repository:
+```bash
+git clone https://github.com/Kaushikkrushnan/FoodBridge.git
+cd FoodBridge
+```
 
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+2. Install dependencies:
+```bash
+pip install flask flask-cors firebase-admin
+```
 
-3. **Run the application**
-   ```bash
-   python app.py
-   ```
+3. Start the application:
+```bash
+python app.py
+```
 
-4. **Access the application**
-   Open your browser and go to: `http://localhost:5001`
+4. Open your browser and navigate to:
+```
+http://localhost:5001
+```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 FoodBridge/
 ├── app.py                 # Main Flask application
-├── Templates/             # HTML templates
-│   ├── index.html         # Homepage
-│   ├── food_donor_registration.html
-│   ├── food_donor_login.html
+├── db.py                  # Database connection utilities
+├── config/
+│   ├── firebase_config.py # Firebase configuration
+│   └── firebase-service-account.json
+├── database/
+│   ├── app.db            # Main SQLite database
+│   ├── auth.db           # Authentication database
+│   ├── assignment.db     # Assignment tracking database
+│   ├── volunteer.db      # Volunteer database
+│   ├── assignment_db.py  # Assignment database utilities
+│   └── session_manager.py # Session management
+├── routes/
+│   ├── auth_routes.py    # Authentication routes
+│   ├── admin_routes.py   # Admin routes
+│   ├── dashboard_routes.py # Dashboard routes
+│   ├── donor_routes.py   # Donor routes
+│   ├── ngo_routes.py     # NGO routes
+│   └── volunteer_routes.py # Volunteer routes
+├── Templates/
+│   ├── base.html         # Base template
+│   ├── index.html        # Homepage
 │   ├── Donor_dashboard.html
-│   ├── NGO_login.html
 │   ├── NGO_dashboard.html
-│   └── ...
-├── routes/                # Flask route blueprints
-│   ├── auth_routes.py     # Authentication routes
-│   ├── dashboard_routes.py
-│   ├── donor_routes.py
-│   └── ...
-├── database/              # SQLite databases
-│   ├── app.db             # Main database (food_donors, ngos tables)
-│   └── assignment.db      # Volunteer assignments
-├── static/                # Static files (CSS, JS, images)
-└── requirements.txt       # Python dependencies
+│   ├── Food_donor.html
+│   ├── register.html     # NGO registration
+│   ├── NGO_login.html
+│   ├── live_tracking.html
+│   ├── progress.html
+│   └── volunteers/
+│       ├── volunteer_login.html
+│       ├── volunteer_register.html
+│       └── volunteer_dashboard.html
+└── static/
+    └── css/
+        └── style.css
 ```
 
-## 🔑 User Flows
+## Technology Stack
 
-### Food Donor Flow
-1. Register at `/food_donor_register`
-2. Login at `/food_donor_login`
-3. View available NGOs on dashboard
-4. Click "Review & Accept" to request an NGO
-5. Track donation progress via "Live Progress Tracking"
+- **Backend**: Flask (Python)
+- **Database**: SQLite
+- **Authentication**: Firebase Auth
+- **Frontend**: HTML, CSS (Tailwind CSS), JavaScript
+- **Maps**: Leaflet.js for live tracking
 
-### NGO Flow
-1. Register at `/ngo_register`
-2. Login at `/ngo_login` (with Firebase authentication)
-3. View pending food donor requests
-4. Click "Accept & Assign Volunteer" to accept donation
-5. A volunteer is automatically assigned based on proximity
-6. Track donation progress via "Live Progress Tracking"
+## Usage Flow
 
-### Volunteer Flow
-1. Register at `/volunteer_register`
-2. Login at `/volunteer_login`
-3. View assigned pickup tasks on dashboard
-4. Update task status as pickup progresses
+1. **Food Donor Flow**:
+   - Register/Login as food donor
+   - Submit food donation with details
+   - Select NGO to donate to
+   - Track donation status
 
-## 🗄️ Database Schema
+2. **NGO Flow**:
+   - Register/Login as NGO
+   - View available food donations
+   - Accept donations
+   - Assign volunteers for pickup
 
-### food_donors table (app.db)
-- id, name, phone, email, whatsapp_phone, vehicle_type, address
+3. **Volunteer Flow**:
+   - Register/Login as volunteer
+   - View assigned pickups
+   - Update delivery status
+   - Complete delivery
 
-### ngos table (app.db)
-- id, name, email, registration_number, password, primary_contact
+## API Endpoints
 
-### volunteers table (app.db)
-- id, name, phone, email, latitude, longitude, is_available
+### Authentication
+- `POST /register_ngo` - Register new NGO
+- `POST /login_ngo` - Login NGO
+- `POST /register_volunteer` - Register volunteer
+- `POST /login_volunteer` - Login volunteer
+- `POST /food_donor_register` - Register food donor
+- `POST /food_donor_login` - Login food donor
 
-## 🔧 Configuration
+### Dashboards
+- `GET /donor_dashboard` - Donor dashboard
+- `GET /ngo_dashboard` - NGO dashboard
+- `GET /volunteer_dashboard` - Volunteer dashboard
 
-The application runs on port 5001 by default. To change this, modify `app.py`:
-```python
-app.run(debug=True, port=5001)
-```
+### Operations
+- `POST /submit_food_request` - Submit food donation
+- `POST /accept_ngo` - Accept NGO request
+- `POST /ngo_accept_donation` - NGO accepts donation
+- `GET /progress` - View progress tracking
+- `GET /live_tracking` - Live volunteer tracking
 
-## 📸 Screenshots
-
-### Food Donor Registration
-![Food Donor Registration](https://github.com/user-attachments/assets/bdd8bcbe-2777-4753-9476-623361129a8d)
-
-### Food Donor Login
-![Food Donor Login](https://github.com/user-attachments/assets/b2224862-cf73-44bd-8a47-ec8be8bd2886)
-
-### Donor Dashboard
-![Donor Dashboard](https://github.com/user-attachments/assets/b14d3ca3-2dde-4f8f-9f72-c72ed32ff6dd)
-
-### NGO Registration
-![NGO Registration](https://github.com/user-attachments/assets/36fba620-a5bb-4016-ab61-9169d7874ad5)
-
-### NGO Login
-![NGO Login](https://github.com/user-attachments/assets/d2e34fa9-dc4a-4f7d-a2de-133f43497fd7)
-
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/new-feature`)
-3. Commit changes (`git commit -m 'Add new feature'`)
-4. Push to branch (`git push origin feature/new-feature`)
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is open source and available under the MIT License.
+
+## Contact
+
+For questions or support, please open an issue in the GitHub repository.

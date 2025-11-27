@@ -151,16 +151,6 @@
 			</div>
 		</div>
 
-		<div style="position: absolute; top: 10px; right: 20px; z-index: 1000;">
-  {% if user_session_key %}
-    <div class="bg-indigo-600 text-white px-4 py-2 rounded shadow-lg">
-      Logged in as: <b>{{ user_name }}</b> ({{ user_role }})<br>
-      {% if user_email %}Email: {{ user_email }}<br>{% endif %}
-      {% if user_phone %}Phone: {{ user_phone }}<br>{% endif %}
-      Session: {{ user_session_key }}
-    </div>
-  {% endif %}
-</div>
 	</div>
 </body>
 </html>

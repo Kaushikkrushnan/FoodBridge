@@ -75,6 +75,23 @@ def request_food_donation(food_donor_id, food_donor_name, ngo_id, ngo_name):
 def accept_food_donation_request(request_id, volunteer_id=None, volunteer_name=None):
     conn = get_assignment_db_connection()
     cursor = conn.cursor()
+    
+    # If volunteer is not provided, assign a random volunteer from app.db
+    if not volunteer_id or not volunteer_name:
+        import sqlite3
+        app_db_path = os.path.join(os.path.dirname(__file__), 'app.db')
+        app_conn = sqlite3.connect(app_db_path)
+        app_conn.row_factory = sqlite3.Row
+        volunteer = app_conn.execute('SELECT id, name FROM volunteers WHERE is_available = 1 ORDER BY RANDOM() LIMIT 1').fetchone()
+        if volunteer:
+            volunteer_id = volunteer['id']
+            volunteer_name = volunteer['name']
+        else:
+            # Create a default volunteer if none exists
+            volunteer_id = 1
+            volunteer_name = "Default Volunteer"
+        app_conn.close()
+    
     # Update request status to accepted
     cursor.execute("""
         UPDATE food_donor_requests
