@@ -3,8 +3,17 @@
 {% block content %}
     <div class="container mx-auto py-8">
         <h1 class="text-4xl font-bold mb-8 text-center">NGO Dashboard</h1>
+        
+        <!-- User Location Display -->
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-8 text-center max-w-2xl mx-auto">
+            <p class="text-lg text-green-800">
+                📍 <strong>Your Location:</strong> {{ user_location_text or 'Location not set' }}
+            </p>
+        </div>
+
         <div class="mb-12">
             <h2 class="text-3xl font-bold text-gray-800 mb-6">Available Food Donations</h2>
+            <p class="text-gray-600 mb-4">Sorted by distance (nearest first)</p>
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="available-donations-grid">
                 {% if available_donations %}
                     {% for donation in available_donations %}
@@ -17,13 +26,42 @@
                          data-pickup-time="{{ donation.pickup_time or '' }}"
                          data-cuisine="{{ donation.cuisine_type or '' }}"
                          data-spice="{{ donation.spice_level or '' }}"
-                         data-spec="{{ donation.food_category or '' }}">
+                         data-spec="{{ donation.food_category or '' }}"
+                         data-distance="{{ donation.distance_km or '' }}"
+                         data-eta="{{ donation.eta_minutes or '' }}"
+                         data-location="{{ donation.location_text or '' }}">
                         <h3 class="text-2xl font-semibold mb-2">{{ donation.food_donor_name or donation.donor_name or 'Anonymous' }}</h3>
                         <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
                         <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
                         <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
                         <p><strong>Pickup Time:</strong> {{ donation.pickup_time or 'N/A' }}</p>
-                        <span class="status-badge status-available">Available</span>
+                        
+                        <!-- Location, Distance, and ETA -->
+                        <div class="mt-3 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-700">📍 <strong>Location:</strong> {{ donation.location_text or 'Location not set' }}</p>
+                            <p class="text-sm text-gray-700">📏 <strong>Distance:</strong> 
+                                {% if donation.distance_km is not none %}
+                                    {{ donation.distance_km }} km
+                                {% else %}
+                                    Location not set
+                                {% endif %}
+                            </p>
+                            <p class="text-sm text-gray-700">⏱ <strong>ETA:</strong> 
+                                {% if donation.eta_minutes is not none %}
+                                    {% if donation.eta_minutes == 0 %}
+                                        < 1 minute
+                                    {% elif donation.eta_minutes == 1 %}
+                                        1 minute
+                                    {% else %}
+                                        {{ donation.eta_minutes }} minutes
+                                    {% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </p>
+                        </div>
+                        
+                        <span class="status-badge status-available mt-3">Available</span>
                         <div class="mt-4">
                             <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="acceptDonationBackend({{ donation.id }})">Review & Accept</button>
                         </div>
@@ -50,13 +88,42 @@
                          data-pickup-time="{{ donation.pickup_time or '' }}"
                          data-cuisine="{{ donation.cuisine_type or '' }}"
                          data-spice="{{ donation.spice_level or '' }}"
-                         data-spec="{{ donation.food_category or '' }}">
+                         data-spec="{{ donation.food_category or '' }}"
+                         data-distance="{{ donation.distance_km or '' }}"
+                         data-eta="{{ donation.eta_minutes or '' }}"
+                         data-location="{{ donation.location_text or '' }}">
                         <h3 class="text-2xl font-semibold mb-2">{{ donation.food_donor_name or donation.donor_name or 'Anonymous' }}</h3>
                         <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
                         <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
                         <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
                         <p><strong>Pickup Time:</strong> {{ donation.pickup_time or 'N/A' }}</p>
-                        <span class="status-badge status-active">Accepted</span>
+                        
+                        <!-- Location, Distance, and ETA -->
+                        <div class="mt-3 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-700">📍 <strong>Location:</strong> {{ donation.location_text or 'Location not set' }}</p>
+                            <p class="text-sm text-gray-700">📏 <strong>Distance:</strong> 
+                                {% if donation.distance_km is not none %}
+                                    {{ donation.distance_km }} km
+                                {% else %}
+                                    Location not set
+                                {% endif %}
+                            </p>
+                            <p class="text-sm text-gray-700">⏱ <strong>ETA:</strong> 
+                                {% if donation.eta_minutes is not none %}
+                                    {% if donation.eta_minutes == 0 %}
+                                        < 1 minute
+                                    {% elif donation.eta_minutes == 1 %}
+                                        1 minute
+                                    {% else %}
+                                        {{ donation.eta_minutes }} minutes
+                                    {% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </p>
+                        </div>
+                        
+                        <span class="status-badge status-active mt-3">Accepted</span>
                         <div class="mt-4">
                             <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewAcceptedDonation({{ donation.id }})">View Details</button>
                         </div>

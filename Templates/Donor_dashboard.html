@@ -7,6 +7,14 @@
             <h1 class="text-4xl font-bold text-gray-800 mb-2">Donor Dashboard</h1>
             <p class="text-lg text-gray-600">Connect with verified NGOs to donate surplus food</p>
         </div>
+        
+        <!-- User Location Display -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8 text-center">
+            <p class="text-lg text-blue-800">
+                📍 <strong>Your Location:</strong> {{ user_location_text or 'Location not set' }}
+            </p>
+        </div>
+
         <!-- Navigation -->
         <nav class="flex justify-center gap-4 mb-8">
             <a href="{{ url_for('index') }}" class="btn bg-sky-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-sky-700 transition duration-300">Home</a>
@@ -16,6 +24,7 @@
         <!-- Available NGOs Section -->
         <div class="mb-12">
             <h2 class="text-3xl font-bold text-gray-800 mb-6">Available NGOs</h2>
+            <p class="text-gray-600 mb-4">Sorted by distance (nearest first)</p>
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="available-ngos-grid">
                 {% if available_ngos %}
                     {% for ngo in available_ngos %}
@@ -23,11 +32,40 @@
                          data-id="{{ ngo.id }}"
                          data-name="{{ ngo.name or '' }}"
                          data-email="{{ ngo.email or '' }}"
-                         data-reg="{{ ngo.registration_number or '' }}">
+                         data-reg="{{ ngo.registration_number or '' }}"
+                         data-distance="{{ ngo.distance_km or '' }}"
+                         data-eta="{{ ngo.eta_minutes or '' }}"
+                         data-location="{{ ngo.location_text or '' }}">
                         <h3 class="text-2xl font-semibold mb-2">{{ ngo.name or 'N/A' }}</h3>
                         <p><strong>Email:</strong> {{ ngo.email or 'N/A' }}</p>
                         <p><strong>Registration:</strong> {{ ngo.registration_number or 'N/A' }}</p>
-                        <span class="status-badge status-vacant">Available</span>
+                        
+                        <!-- Location, Distance, and ETA -->
+                        <div class="mt-3 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-700">📍 <strong>Location:</strong> {{ ngo.location_text or 'Location not set' }}</p>
+                            <p class="text-sm text-gray-700">📏 <strong>Distance:</strong> 
+                                {% if ngo.distance_km is not none %}
+                                    {{ ngo.distance_km }} km
+                                {% else %}
+                                    Location not set
+                                {% endif %}
+                            </p>
+                            <p class="text-sm text-gray-700">⏱ <strong>ETA:</strong> 
+                                {% if ngo.eta_minutes is not none %}
+                                    {% if ngo.eta_minutes == 0 %}
+                                        < 1 minute
+                                    {% elif ngo.eta_minutes == 1 %}
+                                        1 minute
+                                    {% else %}
+                                        {{ ngo.eta_minutes }} minutes
+                                    {% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </p>
+                        </div>
+                        
+                        <span class="status-badge status-vacant mt-3">Available</span>
                         <div class="mt-4">
                             <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="openNgoModal('{{ ngo.id }}')">Review & Accept</button>
                         </div>

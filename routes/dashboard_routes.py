@@ -4,6 +4,7 @@ Dashboard routes for Donor and NGO dashboards
 from flask import Blueprint, render_template, session, request, jsonify
 from db import get_db_connection, get_auth_db_connection
 from database.session_manager import get_user_from_session, update_session_activity
+from utils.distance_utils import add_distance_and_eta
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -114,9 +115,26 @@ def donor_dashboard():
     auth_conn = get_auth_db_connection()
     app_conn = get_db_connection()
 
-    # Get all users from auth.db
+    # Get donor's location from food_donors table
+    donor_lat = None
+    donor_lng = None
+    donor_location_text = "Location not set"
+    if current_donor_name:
+        donor_location = app_conn.execute('''
+            SELECT lat, lng, location_text, pickup_location
+            FROM food_donors
+            WHERE organization_name = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+        ''', (current_donor_name,)).fetchone()
+        if donor_location:
+            donor_lat = donor_location['lat']
+            donor_lng = donor_location['lng']
+            donor_location_text = donor_location['location_text'] or donor_location['pickup_location'] or "Location not set"
+
+    # Get all users from auth.db with location fields
     all_ngos = auth_conn.execute('''
-        SELECT id, name, email, registration_number, verified
+        SELECT id, name, email, registration_number, verified, lat, lng, location_text
         FROM users
         ORDER BY name
     ''').fetchall()
@@ -124,6 +142,10 @@ def donor_dashboard():
     # For now, show all NGOs from auth.db as available
     # TODO: Implement proper categorization based on food_requests status
     available_ngos = [dict(ngo) for ngo in all_ngos]
+    
+    # Add distance and ETA to NGOs based on donor's location, sorted by distance (nearest first)
+    available_ngos = add_distance_and_eta(available_ngos, donor_lat, donor_lng, lat_field='lat', lon_field='lng')
+    
     requested_ngos = []
     accepted_ngos = []
 
@@ -142,6 +164,11 @@ def donor_dashboard():
 
     auth_conn.close()
     app_conn.close()
+
+    # Add donor location info to user_info
+    user_info['user_lat'] = donor_lat
+    user_info['user_lng'] = donor_lng
+    user_info['user_location_text'] = donor_location_text
 
     return render_template('Donor_dashboard.html', 
                          available_ngos=available_ngos, 
@@ -184,8 +211,26 @@ def ngo_dashboard():
     
     from database.assignment_db import get_assignment_db_connection
     conn = get_assignment_db_connection()
+    app_conn = get_db_connection()
+    auth_conn = get_auth_db_connection()
 
     ngo_id = user_info.get('user_id')
+    
+    # Get NGO's location from auth.db users table
+    ngo_lat = None
+    ngo_lng = None
+    ngo_location_text = "Location not set"
+    if ngo_id:
+        ngo_location = auth_conn.execute('''
+            SELECT lat, lng, location_text
+            FROM users
+            WHERE id = ?
+        ''', (ngo_id,)).fetchone()
+        if ngo_location:
+            ngo_lat = ngo_location['lat']
+            ngo_lng = ngo_location['lng']
+            ngo_location_text = ngo_location['location_text'] or "Location not set"
+
     # Show all food donors assigned to this NGO from both tables
     available_donations = conn.execute('''
         SELECT a.id, a.food_donor_id, a.food_donor_name, a.ngo_id, a.ngo_name, r.status, r.ngo_acceptance_status, a.assigned_at
@@ -204,8 +249,58 @@ def ngo_dashboard():
         ORDER BY a.acceptance_time DESC
     ''', (ngo_id,)).fetchall() if ngo_id else []
     accepted_donations_dict = [dict(row) for row in accepted_donations]
+    
+    # Collect all donor IDs for batch lookup
+    all_donations = available_donations_dict + accepted_donations_dict
+    donor_ids = list(set(d.get('food_donor_id') for d in all_donations if d.get('food_donor_id')))
+    
+    # Batch fetch donor location data
+    donor_locations = {}
+    if donor_ids:
+        placeholders = ','.join('?' * len(donor_ids))
+        donors_info = app_conn.execute(f'''
+            SELECT id, lat, lng, location_text, pickup_location
+            FROM food_donors
+            WHERE id IN ({placeholders})
+        ''', donor_ids).fetchall()
+        for donor in donors_info:
+            donor_locations[donor['id']] = {
+                'lat': donor['lat'],
+                'lng': donor['lng'],
+                'location_text': donor['location_text'] or donor['pickup_location'] or "Location not set"
+            }
+    
+    # Helper function to add location info to donations
+    def add_location_info_to_donations(donations):
+        for donation in donations:
+            donor_id = donation.get('food_donor_id')
+            if donor_id and donor_id in donor_locations:
+                donation['lat'] = donor_locations[donor_id]['lat']
+                donation['lng'] = donor_locations[donor_id]['lng']
+                donation['location_text'] = donor_locations[donor_id]['location_text']
+            else:
+                donation['lat'] = None
+                donation['lng'] = None
+                donation['location_text'] = "Location not set"
+    
+    # Add location info to both lists
+    add_location_info_to_donations(available_donations_dict)
+    add_location_info_to_donations(accepted_donations_dict)
+    
+    # Add distance and ETA to donations based on NGO's location, sorted by distance (nearest first)
+    available_donations_dict = add_distance_and_eta(available_donations_dict, ngo_lat, ngo_lng, lat_field='lat', lon_field='lng')
+    
+    # Add distance and ETA to accepted donations
+    accepted_donations_dict = add_distance_and_eta(accepted_donations_dict, ngo_lat, ngo_lng, lat_field='lat', lon_field='lng')
 
     conn.close()
+    app_conn.close()
+    auth_conn.close()
+
+    # Add NGO location info to user_info
+    user_info['user_lat'] = ngo_lat
+    user_info['user_lng'] = ngo_lng
+    user_info['user_location_text'] = ngo_location_text
 
     return render_template('NGO_dashboard.html', 
                          available_donations=available_donations_dict, 
