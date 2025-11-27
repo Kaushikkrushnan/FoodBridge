@@ -23,15 +23,17 @@ def verify_password(stored_hash, password):
     """Verify password against stored hash"""
     return stored_hash == hash_password(password)
 
-def mock_authenticate(email, password, role):
+def mock_authenticate(email, password, role, name=None, phone=None):
     """
     Mock authentication function for local DB authentication.
     Returns user data dict if authenticated, None otherwise.
     
     Args:
-        email: User email
-        password: User password (plaintext)
+        email: User email (optional for donor if using name/phone)
+        password: User password (plaintext) - optional for donor if using name/phone
         role: One of 'donor', 'ngo', 'volunteer'
+        name: User name (optional, for donor name+phone login)
+        phone: User phone (optional, for donor name+phone login)
     
     Returns:
         dict: User data if authenticated
@@ -41,6 +43,26 @@ def mock_authenticate(email, password, role):
     
     if role == 'donor':
         conn = get_db_connection()
+        
+        # Support name+phone login for food donors
+        if name and phone:
+            user = conn.execute('''
+                SELECT id, organization_name as name, email, phone
+                FROM food_donors WHERE organization_name = ? AND phone = ?
+            ''', (name, phone)).fetchone()
+            conn.close()
+            
+            if user:
+                return {
+                    'id': user['id'],
+                    'name': user['name'],
+                    'email': user['email'],
+                    'phone': user['phone'],
+                    'role': 'donor'
+                }
+            return None
+        
+        # Email/password login (legacy)
         user = conn.execute('''
             SELECT id, organization_name as name, email, phone, password_hash
             FROM food_donors WHERE email = ?

@@ -133,37 +133,34 @@ def food_donor_login():
     if request.method == 'GET':
         return render_template('food_donor_login.html', use_mock_auth=USE_MOCK_AUTH)
     else:
-        # Support both name/phone login and email/password login
+        # Use name/phone login for food donors
         name = request.form.get('name')
         phone = request.form.get('phone')
-        email = request.form.get('email')
-        password = request.form.get('password')
 
         try:
-            conn = get_db_connection()
-            
-            # If using mock auth with email/password
-            if USE_MOCK_AUTH and email and password:
-                user = mock_authenticate(email, password, 'donor')
-                if user:
-                    session['user_id'] = user['id']
-                    session['user_session_key'] = f"donor_{user['id']}_{user['email']}"
-                    session['user_type'] = 'food_donor'
-                    session['user_role'] = 'donor'
-                    session['user_name'] = user['name']
-                    session['user_email'] = user['email']
-                    session['user_contact'] = user['email']
-                    print('[DEBUG] Session after donor login (mock auth):', dict(session))
-                    return redirect(url_for('dashboard.donor_dashboard'))
-                else:
-                    flash('Invalid email or password.', 'error')
-                    return redirect(url_for('auth.food_donor_login'))
-            
-            # Legacy login with name/phone
             if not name or not phone:
                 flash('Name and phone number are required.', 'error')
                 return redirect(url_for('auth.food_donor_login'))
             
+            # Use mock_authenticate with name+phone for food donors
+            if USE_MOCK_AUTH:
+                user = mock_authenticate(None, None, 'donor', name=name, phone=phone)
+                if user:
+                    session['user_id'] = user['id']
+                    session['user_session_key'] = f"donor_{user['id']}_{user['phone']}"
+                    session['user_type'] = 'food_donor'
+                    session['user_role'] = 'donor'
+                    session['user_name'] = user['name']
+                    session['user_email'] = user.get('email', '')
+                    session['user_contact'] = user['phone']
+                    print('[DEBUG] Session after donor login (mock auth name+phone):', dict(session))
+                    return redirect(url_for('dashboard.donor_dashboard'))
+                else:
+                    flash('Invalid name or phone number. Please check your credentials.', 'error')
+                    return redirect(url_for('auth.food_donor_login'))
+            
+            # Legacy login with name/phone (direct DB query)
+            conn = get_db_connection()
             row = conn.execute('SELECT * FROM food_donors WHERE organization_name = ? AND phone = ?', (name, phone)).fetchone()
             conn.close()
             user_record = dict(row) if row else None
@@ -173,12 +170,12 @@ def food_donor_login():
                 return redirect(url_for('auth.food_donor_login'))
 
             session['user_id'] = user_record.get('id')
-            session['user_session_key'] = f"donor_{user_record.get('id')}_{user_record.get('email') or user_record.get('phone')}"
+            session['user_session_key'] = f"donor_{user_record.get('id')}_{user_record.get('phone')}"
             session['user_type'] = 'food_donor'
             session['user_role'] = 'donor'
             session['user_name'] = user_record.get('organization_name')
             session['user_email'] = user_record.get('email', '')
-            session['user_contact'] = user_record.get('email') if user_record.get('email') else user_record.get('phone')
+            session['user_contact'] = user_record.get('phone')
             print('[DEBUG] Session after donor login:', dict(session))
             return redirect(url_for('dashboard.donor_dashboard'))
 
