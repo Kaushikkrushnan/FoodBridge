@@ -58,7 +58,9 @@ def init_db():
             auto_verified INTEGER DEFAULT 0,
             address TEXT,
             lat REAL,
-            lon REAL
+            lon REAL,
+            lng REAL,
+            location_text TEXT
         )
     ''')
 
@@ -120,7 +122,10 @@ def init_db():
             status TEXT DEFAULT 'pending',
             selected_ngo_id INTEGER,
             assigned_volunteer_id INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            lat REAL,
+            lng REAL,
+            location_text TEXT
         )
     ''')
 
@@ -175,7 +180,10 @@ def init_auth_db():
             verified INTEGER DEFAULT 0,
             auto_verified INTEGER DEFAULT 0,
             current_session_id TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            lat REAL,
+            lng REAL,
+            location_text TEXT
         )
     ''')
 
