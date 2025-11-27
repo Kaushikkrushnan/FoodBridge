@@ -1,15 +1,3 @@
-    {% if session.get('user_contact') %}
-        <div class="food-donor-login-key bg-indigo-600 text-white px-4 py-2 rounded shadow-lg">
-            Logged in as: <b>{{ session['user_contact'] }}</b>
-        </div>
-    {% endif %}
-
-    {% if not session.get('user_contact') %}
-        <a href="{{ url_for('auth.food_donor_login') }}" class="food-donor-login-key" style="top: 50px; right: 10px; position: fixed; background-color: #4f46e5; color: white;">Food Donor Login</a>
-    {% endif %}
-    {% if session.get('user_contact') %}
-        <a href="{{ url_for('auth.food_donor_logout') }}" class="food-donor-login-key" style="top: 50px; right: 10px; position: fixed; background-color: #e53e3e; color: white;">Logout</a>
-    {% endif %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -61,7 +49,17 @@
     {% endif %}
 </div>
 
-    <!-- Removed top right login/logout keys as requested -->
+    {% if not session.get('user_contact') %}
+        <a href="{{ url_for('auth.food_donor_login') }}" class="food-donor-login-key" style="top: 50px; right: 10px; position: fixed; background-color: #4f46e5; color: white;">Food Donor Login</a>
+    {% endif %}
+    {% if session.get('user_contact') %}
+        <a href="{{ url_for('auth.food_donor_logout') }}" class="food-donor-login-key" style="top: 50px; right: 10px; position: fixed; background-color: #e53e3e; color: white;">Logout</a>
+    {% endif %}
+
+		<section class="card">
+			<form action="{{ url_for('donor.submit_food_request') }}" method="POST">
+				<div class="row two">
+					<div>
 						<label for="donor_name">Your Name / Organization Name</label>
 						<input id="donor_name" name="donor_name" type="text" placeholder="e.g., City Bakery" required>
 					</div>
