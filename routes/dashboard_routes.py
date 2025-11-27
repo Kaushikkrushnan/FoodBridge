@@ -240,31 +240,6 @@ def ngo_dashboard():
         ORDER BY a.assigned_at DESC
     ''', (ngo_id,)).fetchall() if ngo_id else []
     available_donations_dict = [dict(row) for row in available_donations]
-    
-    # Add location info to available donations from food_donors table
-    for donation in available_donations_dict:
-        donor_id = donation.get('food_donor_id')
-        if donor_id:
-            donor_info = app_conn.execute('''
-                SELECT lat, lng, location_text, pickup_location
-                FROM food_donors
-                WHERE id = ?
-            ''', (donor_id,)).fetchone()
-            if donor_info:
-                donation['lat'] = donor_info['lat']
-                donation['lng'] = donor_info['lng']
-                donation['location_text'] = donor_info['location_text'] or donor_info['pickup_location'] or "Location not set"
-            else:
-                donation['lat'] = None
-                donation['lng'] = None
-                donation['location_text'] = "Location not set"
-        else:
-            donation['lat'] = None
-            donation['lng'] = None
-            donation['location_text'] = "Location not set"
-    
-    # Add distance and ETA to donations based on NGO's location, sorted by distance (nearest first)
-    available_donations_dict = add_distance_and_eta(available_donations_dict, ngo_lat, ngo_lng, lat_field='lat', lon_field='lng')
 
     accepted_donations = conn.execute('''
         SELECT a.id, a.food_donor_id, a.food_donor_name, a.ngo_id, a.ngo_name, r.status, r.ngo_acceptance_status, a.acceptance_time
@@ -275,27 +250,45 @@ def ngo_dashboard():
     ''', (ngo_id,)).fetchall() if ngo_id else []
     accepted_donations_dict = [dict(row) for row in accepted_donations]
     
-    # Add location info to accepted donations from food_donors table
-    for donation in accepted_donations_dict:
-        donor_id = donation.get('food_donor_id')
-        if donor_id:
-            donor_info = app_conn.execute('''
-                SELECT lat, lng, location_text, pickup_location
-                FROM food_donors
-                WHERE id = ?
-            ''', (donor_id,)).fetchone()
-            if donor_info:
-                donation['lat'] = donor_info['lat']
-                donation['lng'] = donor_info['lng']
-                donation['location_text'] = donor_info['location_text'] or donor_info['pickup_location'] or "Location not set"
+    # Collect all donor IDs for batch lookup
+    all_donations = available_donations_dict + accepted_donations_dict
+    donor_ids = list(set(d.get('food_donor_id') for d in all_donations if d.get('food_donor_id')))
+    
+    # Batch fetch donor location data
+    donor_locations = {}
+    if donor_ids:
+        placeholders = ','.join('?' * len(donor_ids))
+        donors_info = app_conn.execute(f'''
+            SELECT id, lat, lng, location_text, pickup_location
+            FROM food_donors
+            WHERE id IN ({placeholders})
+        ''', donor_ids).fetchall()
+        for donor in donors_info:
+            donor_locations[donor['id']] = {
+                'lat': donor['lat'],
+                'lng': donor['lng'],
+                'location_text': donor['location_text'] or donor['pickup_location'] or "Location not set"
+            }
+    
+    # Helper function to add location info to donations
+    def add_location_info_to_donations(donations):
+        for donation in donations:
+            donor_id = donation.get('food_donor_id')
+            if donor_id and donor_id in donor_locations:
+                donation['lat'] = donor_locations[donor_id]['lat']
+                donation['lng'] = donor_locations[donor_id]['lng']
+                donation['location_text'] = donor_locations[donor_id]['location_text']
             else:
                 donation['lat'] = None
                 donation['lng'] = None
                 donation['location_text'] = "Location not set"
-        else:
-            donation['lat'] = None
-            donation['lng'] = None
-            donation['location_text'] = "Location not set"
+    
+    # Add location info to both lists
+    add_location_info_to_donations(available_donations_dict)
+    add_location_info_to_donations(accepted_donations_dict)
+    
+    # Add distance and ETA to donations based on NGO's location, sorted by distance (nearest first)
+    available_donations_dict = add_distance_and_eta(available_donations_dict, ngo_lat, ngo_lng, lat_field='lat', lon_field='lng')
     
     # Add distance and ETA to accepted donations
     accepted_donations_dict = add_distance_and_eta(accepted_donations_dict, ngo_lat, ngo_lng, lat_field='lat', lon_field='lng')

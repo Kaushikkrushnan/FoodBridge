@@ -92,7 +92,8 @@ def add_distance_and_eta(items, user_lat, user_lon, lat_field='lat', lon_field='
         item['eta_minutes'] = calculate_eta_minutes(distance)
     
     # Sort by distance (items with None distance go to the end)
-    items.sort(key=lambda x: (x['distance_km'] is None, x['distance_km'] if x['distance_km'] is not None else float('inf')))
+    # Use infinity for None values to ensure they sort to the end
+    items.sort(key=lambda x: x['distance_km'] if x['distance_km'] is not None else float('inf'))
     
     return items
 
