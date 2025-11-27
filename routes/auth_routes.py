@@ -1,5 +1,14 @@
 """
-Authentication routes for NGO registration and login using Firebase
+Authentication routes for NGO registration and login using Firebase or Mock Auth.
+
+When USE_MOCK_AUTH = True (in config/mock_auth.py):
+- Firebase authentication is bypassed
+- Local SQLite database authentication is used
+- Passwords are hashed with SHA-256
+
+When USE_MOCK_AUTH = False:
+- Real Firebase authentication is used
+- Firebase ID tokens are verified
 """
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, session, flash
 from db import get_db_connection, get_auth_db_connection, get_volunteer_db_connection
@@ -8,6 +17,7 @@ from werkzeug.utils import secure_filename
 import firebase_admin
 from firebase_admin import auth as firebase_auth, firestore
 from config.firebase_config import FIREBASE_CONFIG
+from config.mock_auth import USE_MOCK_AUTH, mock_authenticate, mock_register, hash_password
 from database.session_manager import create_session, deactivate_session, get_user_from_session, update_session_activity
 
 auth_bp = Blueprint('auth', __name__)
@@ -18,7 +28,7 @@ def food_donor_register():
         conn = get_db_connection()
         ngos = conn.execute('SELECT id, name FROM ngos').fetchall()
         conn.close()
-        return render_template('food_donor_registration.html', ngos=ngos)
+        return render_template('food_donor_registration.html', ngos=ngos, use_mock_auth=USE_MOCK_AUTH)
     else:
         name = request.form.get('name')
         email = request.form.get('email')
@@ -26,27 +36,53 @@ def food_donor_register():
         whatsapp_phone = request.form.get('whatsapp_phone')
         vehicle_type = request.form.get('vehicle_type')
         address = request.form.get('address')
+        password = request.form.get('password')  # For mock auth
 
         conn = get_db_connection()
         ngos = conn.execute('SELECT id, name FROM ngos').fetchall()
         
         if not all([name, phone, whatsapp_phone, vehicle_type, address]):
             conn.close()
-            return render_template('food_donor_registration.html', ngos=ngos, error_message='All fields are required.')
+            return render_template('food_donor_registration.html', ngos=ngos, error_message='All fields are required.', use_mock_auth=USE_MOCK_AUTH)
 
-        # Save data to food_donors table (SQLite) only
+        # Check if using mock auth and password is required
+        if USE_MOCK_AUTH:
+            if not password:
+                conn.close()
+                return render_template('food_donor_registration.html', ngos=ngos, error_message='Password is required.', use_mock_auth=USE_MOCK_AUTH)
+            if not email:
+                conn.close()
+                return render_template('food_donor_registration.html', ngos=ngos, error_message='Email is required.', use_mock_auth=USE_MOCK_AUTH)
+
+        # Check if using mock auth and password is provided
+        password_hash = None
+        if USE_MOCK_AUTH and password:
+            password_hash = hash_password(password)
+
+        # Check by email first (for mock auth), then by phone
+        donor_record = None
+        if email:
+            donor_record = conn.execute('SELECT * FROM food_donors WHERE email = ?', (email,)).fetchone()
+            if donor_record:
+                conn.close()
+                return render_template('food_donor_registration.html', ngos=ngos, error_message='Email already registered. Please login.', use_mock_auth=USE_MOCK_AUTH)
+        
         donor_record = conn.execute('SELECT * FROM food_donors WHERE phone = ?', (phone,)).fetchone()
         if not donor_record:
             try:
-                # Use NULL for food_type, quantity, pickup_location as they will be set when creating donations
+                # Default values for food_type, quantity, pickup_location
+                # These will be updated when the donor creates a food donation
+                DEFAULT_FOOD_TYPE = 'Not specified'
+                DEFAULT_QUANTITY = 'Not specified'
+                
                 insert_cursor = conn.execute('''
-                    INSERT INTO food_donors (organization_name, email, phone, whatsapp_phone, vehicle_type, address, food_type, quantity, pickup_location, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, CURRENT_TIMESTAMP)
-                ''', (name, email, phone, whatsapp_phone, vehicle_type, address))
+                    INSERT INTO food_donors (organization_name, email, phone, whatsapp_phone, vehicle_type, address, food_type, quantity, pickup_location, password_hash, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ''', (name, email, phone, whatsapp_phone, vehicle_type, address, DEFAULT_FOOD_TYPE, DEFAULT_QUANTITY, address, password_hash))
                 conn.commit()
             except Exception as e:
                 conn.close()
-                return render_template('food_donor_registration.html', ngos=ngos, error_message='Database error: ' + str(e))
+                return render_template('food_donor_registration.html', ngos=ngos, error_message='Database error: ' + str(e), use_mock_auth=USE_MOCK_AUTH)
         donor_record = conn.execute('SELECT * FROM food_donors WHERE phone = ?', (phone,)).fetchone()
         conn.close()
 
@@ -83,27 +119,51 @@ def food_donor_register():
             session['user_id'] = donor_record['id']
             session['user_session_key'] = f"donor_{donor_record['id']}_{donor_record['email'] or donor_record['phone']}"
             session['user_type'] = 'food_donor'
+            session['user_role'] = 'donor'
             session['user_name'] = donor_record['organization_name']
+            session['user_email'] = donor_record['email'] if donor_record['email'] else ''
             session['user_contact'] = donor_record['email'] if donor_record['email'] else donor_record['phone']
             print('[DEBUG] Session after donor registration:', dict(session))
             return redirect(url_for('dashboard.donor_dashboard'))
         else:
-            return render_template('food_donor_registration.html', error_message='Registration failed.')
+            return render_template('food_donor_registration.html', error_message='Registration failed.', use_mock_auth=USE_MOCK_AUTH)
 
 @auth_bp.route('/food_donor_login', methods=['GET', 'POST'])
 def food_donor_login():
     if request.method == 'GET':
-        return render_template('food_donor_login.html')
+        return render_template('food_donor_login.html', use_mock_auth=USE_MOCK_AUTH)
     else:
+        # Support both name/phone login and email/password login
         name = request.form.get('name')
         phone = request.form.get('phone')
-
-        if not name or not phone:
-            flash('Name and phone number are required.', 'error')
-            return redirect(url_for('auth.food_donor_login'))
+        email = request.form.get('email')
+        password = request.form.get('password')
 
         try:
             conn = get_db_connection()
+            
+            # If using mock auth with email/password
+            if USE_MOCK_AUTH and email and password:
+                user = mock_authenticate(email, password, 'donor')
+                if user:
+                    session['user_id'] = user['id']
+                    session['user_session_key'] = f"donor_{user['id']}_{user['email']}"
+                    session['user_type'] = 'food_donor'
+                    session['user_role'] = 'donor'
+                    session['user_name'] = user['name']
+                    session['user_email'] = user['email']
+                    session['user_contact'] = user['email']
+                    print('[DEBUG] Session after donor login (mock auth):', dict(session))
+                    return redirect(url_for('dashboard.donor_dashboard'))
+                else:
+                    flash('Invalid email or password.', 'error')
+                    return redirect(url_for('auth.food_donor_login'))
+            
+            # Legacy login with name/phone
+            if not name or not phone:
+                flash('Name and phone number are required.', 'error')
+                return redirect(url_for('auth.food_donor_login'))
+            
             row = conn.execute('SELECT * FROM food_donors WHERE organization_name = ? AND phone = ?', (name, phone)).fetchone()
             conn.close()
             user_record = dict(row) if row else None
@@ -115,7 +175,9 @@ def food_donor_login():
             session['user_id'] = user_record.get('id')
             session['user_session_key'] = f"donor_{user_record.get('id')}_{user_record.get('email') or user_record.get('phone')}"
             session['user_type'] = 'food_donor'
+            session['user_role'] = 'donor'
             session['user_name'] = user_record.get('organization_name')
+            session['user_email'] = user_record.get('email', '')
             session['user_contact'] = user_record.get('email') if user_record.get('email') else user_record.get('phone')
             print('[DEBUG] Session after donor login:', dict(session))
             return redirect(url_for('dashboard.donor_dashboard'))
@@ -145,13 +207,91 @@ def allowed_file(filename):
 @auth_bp.route('/ngo_login')
 def ngo_login():
     """Render NGO login page"""
-    return render_template('NGO_login.html', firebase_config=FIREBASE_CONFIG)
+    return render_template('NGO_login.html', firebase_config=FIREBASE_CONFIG, use_mock_auth=USE_MOCK_AUTH)
 
 
 @auth_bp.route('/ngo_register')
 def ngo_register():
     """Render NGO registration page"""
-    return render_template('register.html', firebase_config=FIREBASE_CONFIG)
+    return render_template('register.html', firebase_config=FIREBASE_CONFIG, use_mock_auth=USE_MOCK_AUTH)
+
+
+@auth_bp.route('/ngo_login_mock', methods=['POST'])
+def ngo_login_mock():
+    """
+    Mock NGO login using email/password (when USE_MOCK_AUTH=True).
+    """
+    if not USE_MOCK_AUTH:
+        return jsonify({'success': False, 'message': 'Mock auth is disabled'}), 400
+    
+    email = request.form.get('email')
+    password = request.form.get('password')
+    
+    if not email or not password:
+        flash('Email and password are required.', 'error')
+        return redirect(url_for('auth.ngo_login'))
+    
+    user = mock_authenticate(email, password, 'ngo')
+    if user:
+        session['user_id'] = user['id']
+        session['user_name'] = user['name']
+        session['user_email'] = user['email']
+        session['user_role'] = 'NGO'
+        session['user_type'] = 'NGO'
+        session['user_registration'] = user.get('registration_number', '')
+        session['user_verified'] = user.get('verified', False)
+        session['user_session_key'] = f"ngo_{user['id']}_{user['email']}"
+        session['user_contact'] = user['email']
+        session.permanent = True
+        print('[DEBUG] Session after NGO mock login:', dict(session))
+        return redirect(url_for('dashboard.ngo_dashboard'))
+    else:
+        flash('Invalid email or password.', 'error')
+        return redirect(url_for('auth.ngo_login'))
+
+
+@auth_bp.route('/ngo_register_mock', methods=['POST'])
+def ngo_register_mock():
+    """
+    Mock NGO registration using email/password (when USE_MOCK_AUTH=True).
+    """
+    if not USE_MOCK_AUTH:
+        return jsonify({'success': False, 'message': 'Mock auth is disabled'}), 400
+    
+    name = request.form.get('name')
+    email = request.form.get('email')
+    registration_number = request.form.get('registration_number')
+    primary_contact = request.form.get('primary_contact', '')
+    password = request.form.get('password')
+    
+    if not all([name, email, registration_number, password]):
+        flash('All fields are required.', 'error')
+        return redirect(url_for('auth.ngo_register'))
+    
+    result = mock_register({
+        'name': name,
+        'email': email,
+        'registration_number': registration_number,
+        'primary_contact': primary_contact,
+        'password': password
+    }, 'ngo')
+    
+    if result['success']:
+        session['user_id'] = result['user_id']
+        session['user_name'] = name
+        session['user_email'] = email
+        session['user_role'] = 'NGO'
+        session['user_type'] = 'NGO'
+        session['user_registration'] = registration_number
+        session['user_verified'] = False
+        session['user_session_key'] = f"ngo_{result['user_id']}_{email}"
+        session['user_contact'] = email
+        session.permanent = True
+        print('[DEBUG] Session after NGO mock registration:', dict(session))
+        return redirect(url_for('dashboard.ngo_dashboard'))
+    else:
+        flash(result['message'], 'error')
+        return redirect(url_for('auth.ngo_register'))
 
 
 @auth_bp.route('/register_ngo', methods=['POST'])
@@ -485,7 +625,7 @@ def upload_certificate():
 def volunteer_login():
     if request.method == 'GET':
         # Render the volunteer login page
-        return render_template('volunteers/volunteer_login.html', firebase_config=FIREBASE_CONFIG)
+        return render_template('volunteers/volunteer_login.html', firebase_config=FIREBASE_CONFIG, use_mock_auth=USE_MOCK_AUTH)
     else:
         email = request.form.get('email')
         password = request.form.get('password')
@@ -494,9 +634,28 @@ def volunteer_login():
             flash('Email and password are required.', 'error')
             return redirect(url_for('auth.volunteer_login'))
 
+        # If using mock auth
+        if USE_MOCK_AUTH:
+            user = mock_authenticate(email, password, 'volunteer')
+            if user:
+                session['user_id'] = user['id']
+                session['user_name'] = user['name']
+                session['user_email'] = user['email']
+                session['user_role'] = 'Volunteer'
+                session['user_type'] = 'volunteer'
+                session['user_verified'] = user.get('verified', False)
+                session['user_session_key'] = f"volunteer_{user['id']}_{user['email']}"
+                session['user_contact'] = user['email']
+                print('[DEBUG] Session after volunteer mock login:', dict(session))
+                return redirect(url_for('dashboard.volunteer_dashboard'))
+            else:
+                flash('Invalid email or password.', 'error')
+                return redirect(url_for('auth.volunteer_login'))
+
+        # Firebase auth (when USE_MOCK_AUTH = False)
         try:
             # Authenticate with Firebase
-            user = auth.get_user_by_email(email)
+            user = firebase_auth.get_user_by_email(email)
             # Here you might verify password with Firebase Auth SDK or client-side
             
             # Verify user exists in volunteer database
@@ -525,7 +684,47 @@ def volunteer_login():
 @auth_bp.route('/volunteer_register')
 def volunteer_register():
     """Render Volunteer registration page"""
-    return render_template('volunteers/volunteer_register.html', firebase_config=FIREBASE_CONFIG)
+    return render_template('volunteers/volunteer_register.html', firebase_config=FIREBASE_CONFIG, use_mock_auth=USE_MOCK_AUTH)
+
+
+@auth_bp.route('/volunteer_register_mock', methods=['POST'])
+def volunteer_register_mock():
+    """
+    Mock volunteer registration using email/password (when USE_MOCK_AUTH=True).
+    """
+    if not USE_MOCK_AUTH:
+        return jsonify({'success': False, 'message': 'Mock auth is disabled'}), 400
+    
+    name = request.form.get('name')
+    email = request.form.get('email')
+    phone = request.form.get('phone', '')
+    password = request.form.get('password')
+    
+    if not all([name, email, password]):
+        flash('Name, email, and password are required.', 'error')
+        return redirect(url_for('auth.volunteer_register'))
+    
+    result = mock_register({
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'password': password
+    }, 'volunteer')
+    
+    if result['success']:
+        session['user_id'] = result['user_id']
+        session['user_name'] = name
+        session['user_email'] = email
+        session['user_role'] = 'Volunteer'
+        session['user_type'] = 'volunteer'
+        session['user_verified'] = False
+        session['user_session_key'] = f"volunteer_{result['user_id']}_{email}"
+        session['user_contact'] = email
+        print('[DEBUG] Session after volunteer mock registration:', dict(session))
+        return redirect(url_for('dashboard.volunteer_dashboard'))
+    else:
+        flash(result['message'], 'error')
+        return redirect(url_for('auth.volunteer_register'))
 
 
 @auth_bp.route('/register_volunteer', methods=['POST'])

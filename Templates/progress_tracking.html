@@ -158,17 +158,35 @@
                             </div>
                         </div>
 
-                        <!-- NGO Controls for updating progress -->
-                        {% if session.get('user_type') == 'NGO' or session.get('user_role') == 'NGO' %}
+                        <!-- Role-based Controls for updating progress -->
+                        <!-- Food Donors see Step 1 button (Food packed & ready) -->
+                        {% if (session.get('user_type') == 'food_donor' or session.get('user_role') == 'donor') and current_step == 0 %}
                         <div class="mt-4 flex gap-2">
-                            {% if current_step < 4 %}
-                            <button onclick="updateProgress({{ req.id }}, {{ current_step + 1 }})" 
+                            <button onclick="updateProgress({{ req.id }}, 1)" 
+                                    class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                                📦 Complete Step 1: Food Packed & Ready
+                            </button>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- NGOs see Step 3 button (Food delivered) when step 2 is complete -->
+                        {% if (session.get('user_type') == 'NGO' or session.get('user_role') == 'NGO') %}
+                        <div class="mt-4 flex gap-2">
+                            {% if current_step == 2 %}
+                            <button onclick="updateProgress({{ req.id }}, 3)" 
+                                    class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition text-sm">
+                                🚴 Complete Step 3: Volunteer Near NGO
+                            </button>
+                            {% elif current_step == 3 %}
+                            <button onclick="updateProgress({{ req.id }}, 4)" 
                                     class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm">
-                                ✓ Mark Step {{ current_step + 1 }} Complete
+                                ✓ Complete Step 4: Food Delivered
                             </button>
                             {% endif %}
                         </div>
                         {% endif %}
+                        
+                        <!-- Volunteers do NOT see any buttons - they are tracked automatically -->
                     </div>
                 {% endfor %}
                 </div>
