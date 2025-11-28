@@ -236,14 +236,16 @@ def ngo_dashboard():
     ngo_id = user_info.get('user_id')
     
     # Get available donations - fetch from food_donors table with food details
+    # Sort by pickup_time (soonest first for higher priority) and then by created_at
     available_donations = app_conn.execute('''
         SELECT fd.id, fd.organization_name as food_donor_name, fd.food_type, fd.quantity,
                fd.ready_for_pickup_time as pickup_time, fd.pickup_location,
                fd.category as food_category, fd.cuisine_type, fd.spice_level,
-               fd.status, fd.created_at, fd.phone, fd.email
+               fd.status, fd.created_at, fd.phone, fd.email,
+               fd.pickup_lat, fd.pickup_lon
         FROM food_donors fd
         WHERE fd.status = 'available' OR fd.status = 'pending'
-        ORDER BY fd.created_at DESC
+        ORDER BY fd.ready_for_pickup_time ASC, fd.created_at DESC
     ''').fetchall()
     available_donations_dict = [dict(row) for row in available_donations]
 
@@ -257,7 +259,7 @@ def ngo_dashboard():
         FROM food_donors fd
         LEFT JOIN volunteers v ON fd.assigned_volunteer_id = v.id
         WHERE fd.status = 'accepted' AND fd.selected_ngo_id = ?
-        ORDER BY fd.created_at DESC
+        ORDER BY fd.ready_for_pickup_time ASC, fd.created_at DESC
     ''', (ngo_id,)).fetchall() if ngo_id else []
     accepted_donations_dict = [dict(row) for row in accepted_donations]
 
