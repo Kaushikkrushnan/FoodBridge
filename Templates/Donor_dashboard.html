@@ -227,6 +227,117 @@
             closeNgoModal();
         }
         
+        // View details for Requested NGO
+        function viewRequestedNgoDetails(ngoId) {
+            const card = document.querySelector('#requested-ngos-grid .ngo-card');
+            if (!card) {
+                alert('NGO details not found');
+                return;
+            }
+            
+            // Find the specific card with this NGO
+            const cards = document.querySelectorAll('#requested-ngos-grid .ngo-card');
+            let ngoCard = null;
+            cards.forEach(c => {
+                const btn = c.querySelector('button');
+                if (btn && btn.getAttribute('onclick').includes(ngoId)) {
+                    ngoCard = c;
+                }
+            });
+            
+            if (!ngoCard) ngoCard = card;
+            
+            const name = ngoCard.querySelector('h3')?.textContent || 'N/A';
+            const email = ngoCard.querySelector('p:nth-child(2)')?.textContent?.replace('Email:', '').trim() || 'N/A';
+            const reg = ngoCard.querySelector('p:nth-child(3)')?.textContent?.replace('Registration:', '').trim() || 'N/A';
+            const donations = ngoCard.querySelector('p:nth-child(4)')?.textContent?.replace('Requested Donations:', '').trim() || '0';
+            
+            const modalBody = document.getElementById('ngo-modal-body');
+            modalBody.innerHTML = `
+                <h2 class="text-3xl font-bold mb-4">${name}</h2>
+                <p class="text-lg mb-2"><strong>Email:</strong> ${email}</p>
+                <p class="text-lg mb-2"><strong>Registration Number:</strong> ${reg}</p>
+                <p class="text-lg mb-2"><strong>Requested Donations:</strong> ${donations}</p>
+                <p class="text-lg mb-2"><strong>Status:</strong> <span class="status-badge status-occupied">Requested - Awaiting NGO Approval</span></p>
+                <hr class="my-6">
+                <p class="text-gray-600">Your request has been sent to this NGO. They will review and accept your donation soon.</p>
+                <div class="mt-8">
+                    <a href="{{ url_for('dashboard.progress') }}" class="btn w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition text-lg font-semibold text-center block">
+                        View Progress Tracking
+                    </a>
+                </div>
+            `;
+            document.getElementById('ngo-modal').style.display = 'block';
+        }
+        
+        // View details for Accepted NGO
+        function viewAcceptedNgoDetails(ngoId) {
+            const cards = document.querySelectorAll('#accepted-ngos-grid .ngo-card');
+            let ngoCard = null;
+            cards.forEach(c => {
+                const btn = c.querySelector('button');
+                if (btn && btn.getAttribute('onclick').includes(ngoId)) {
+                    ngoCard = c;
+                }
+            });
+            
+            if (!ngoCard && cards.length > 0) ngoCard = cards[0];
+            
+            if (!ngoCard) {
+                alert('NGO details not found');
+                return;
+            }
+            
+            const name = ngoCard.querySelector('h3')?.textContent || 'N/A';
+            const email = ngoCard.querySelector('p:nth-child(2)')?.textContent?.replace('Email:', '').trim() || 'N/A';
+            const reg = ngoCard.querySelector('p:nth-child(3)')?.textContent?.replace('Registration:', '').trim() || 'N/A';
+            const donations = ngoCard.querySelector('p:nth-child(4)')?.textContent?.replace('Accepted Donations:', '').trim() || '0';
+            
+            const modalBody = document.getElementById('ngo-modal-body');
+            modalBody.innerHTML = `
+                <h2 class="text-3xl font-bold mb-4">${name}</h2>
+                <p class="text-lg mb-2"><strong>Email:</strong> ${email}</p>
+                <p class="text-lg mb-2"><strong>Registration Number:</strong> ${reg}</p>
+                <p class="text-lg mb-2"><strong>Accepted Donations:</strong> ${donations}</p>
+                <p class="text-lg mb-2"><strong>Status:</strong> <span class="status-badge bg-green-500 text-white px-2 py-1 rounded">Accepted ✓</span></p>
+                <hr class="my-6">
+                <p class="text-green-600 font-semibold">This NGO has accepted your donation request!</p>
+                <div class="mt-8 space-y-3">
+                    <a href="{{ url_for('dashboard.progress') }}" class="btn w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition text-lg font-semibold text-center block">
+                        View Live Progress Tracking
+                    </a>
+                    <button onclick="markFoodPacked(${ngoId})" class="btn w-full bg-orange-500 text-white px-4 py-3 rounded-lg hover:bg-orange-600 transition text-lg font-semibold">
+                        Mark Food Packed & Ready
+                    </button>
+                </div>
+            `;
+            document.getElementById('ngo-modal').style.display = 'block';
+        }
+        
+        // Mark food as packed
+        function markFoodPacked(ngoId) {
+            fetch('/mark_food_packed', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ ngo_id: ngoId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Food marked as packed! Volunteer will be assigned shortly.');
+                    closeNgoModal();
+                    window.location.href = '{{ url_for("dashboard.progress") }}';
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('Error: ' + err);
+            });
+        }
+        
         // Close modal when clicking outside
         window.onclick = function(event) {
             const modal = document.getElementById('ngo-modal');
