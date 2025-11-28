@@ -1,144 +1,241 @@
 {% extends 'base.html' %}
 {% block title %}Progress Tracking - Surplus-to-NGO{% endblock %}
 {% block content %}
+    <style>
+        .tracking-step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .tracking-step .step-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.75rem;
+            font-size: 14px;
+        }
+        .tracking-step.completed .step-icon {
+            background-color: #10b981;
+            color: white;
+        }
+        .tracking-step.pending .step-icon {
+            background-color: #e5e7eb;
+            color: #9ca3af;
+        }
+        .tracking-step.active .step-icon {
+            background-color: #3b82f6;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .tracking-line {
+            width: 2px;
+            height: 20px;
+            background-color: #e5e7eb;
+            margin-left: 11px;
+        }
+        .tracking-line.completed {
+            background-color: #10b981;
+        }
+    </style>
+
     <div class="container mx-auto px-4 py-8">
         <!-- Header -->
         <div class="text-center mb-8">
             <h1 class="text-4xl font-bold text-gray-800 mb-2">Live Progress Tracking</h1>
-            <p class="text-lg text-gray-600">Real-time tracking of food donations and volunteer movements</p>
+            <p class="text-lg text-gray-600">Real-time tracking of your food donations</p>
+            {% if user_role == 'food_donor' %}
+            <p class="text-sm text-blue-600 mt-2">Viewing as: Food Donor</p>
+            {% elif user_role == 'NGO' %}
+            <p class="text-sm text-green-600 mt-2">Viewing as: NGO</p>
+            {% endif %}
         </div>
+        
         <!-- Navigation -->
         <div class="flex justify-center mb-8">
             <a href="{{ url_for('index') }}" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-300 mr-4">Home</a>
+            {% if user_role == 'food_donor' %}
+            <a href="{{ url_for('dashboard.donor_dashboard') }}" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition duration-300 mr-4">Donor Dashboard</a>
+            {% elif user_role == 'NGO' %}
+            <a href="{{ url_for('dashboard.ngo_dashboard') }}" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition duration-300 mr-4">NGO Dashboard</a>
+            {% else %}
             <a href="{{ url_for('dashboard.donor_dashboard') }}" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition duration-300 mr-4">Food Donor Dashboard</a>
             <a href="{{ url_for('dashboard.ngo_dashboard') }}" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300">NGO Dashboard</a>
+            {% endif %}
         </div>
-        <!-- Top Section: Volunteer Transport Details -->
+
+        <!-- My Donations Tracking (Role-specific) -->
         <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
-            <h2 class="text-2xl font-semibold mb-4">Transport Volunteers</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {% for request in assigned_requests %}
-                <div class="volunteer-card {% if request.status == 'assigned' %}active{% endif %} bg-gray-50 p-4 rounded-lg border">
-                    <div class="flex justify-between items-start mb-2">
-                        <h4 class="font-semibold text-gray-800">{{ request.volunteer_name or 'Unassigned' }}</h4>
-                        <span class="status-badge status-{{ request.status }} px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
-                            {{ request.status.replace('_', ' ').title() if request.status else 'Pending' }}
-                        </span>
+            <h2 class="text-2xl font-semibold mb-6">📦 My Active Donations</h2>
+            
+            {% set all_requests = (assigned_requests or []) + (collected_requests or []) + (in_transit_requests or []) %}
+            {% if all_requests %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for req in all_requests %}
+                <div class="bg-gray-50 p-5 rounded-lg border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">{{ req.food_donor_name or 'Donation' }} → {{ req.ngo_name or 'NGO' }}</h3>
+                    
+                    <!-- Live Tracking Progress Steps -->
+                    <div class="mt-4">
+                        {% set status = req.status or 'pending' %}
+                        
+                        <!-- Step 1: Request Sent -->
+                        <div class="tracking-step completed">
+                            <div class="step-icon">✔</div>
+                            <span class="text-sm font-medium text-gray-700">Request Sent</span>
+                        </div>
+                        <div class="tracking-line completed"></div>
+                        
+                        <!-- Step 2: NGO Accepted -->
+                        {% if status in ['accepted', 'packed', 'collected', 'in_transit', 'near_ngo', 'delivered', 'completed'] %}
+                        <div class="tracking-step completed">
+                            <div class="step-icon">✔</div>
+                            <span class="text-sm font-medium text-gray-700">NGO Accepted</span>
+                        </div>
+                        <div class="tracking-line completed"></div>
+                        {% else %}
+                        <div class="tracking-step {% if status == 'pending' %}active{% else %}pending{% endif %}">
+                            <div class="step-icon">{% if status == 'pending' %}⏳{% else %}○{% endif %}</div>
+                            <span class="text-sm text-gray-500">NGO Accepted</span>
+                        </div>
+                        <div class="tracking-line"></div>
+                        {% endif %}
+                        
+                        <!-- Step 3: Food Packed -->
+                        {% if status in ['packed', 'collected', 'in_transit', 'near_ngo', 'delivered', 'completed'] %}
+                        <div class="tracking-step completed">
+                            <div class="step-icon">✔</div>
+                            <span class="text-sm font-medium text-gray-700">Food Packed</span>
+                        </div>
+                        <div class="tracking-line completed"></div>
+                        {% elif status == 'accepted' %}
+                        <div class="tracking-step active">
+                            <div class="step-icon">⏳</div>
+                            <span class="text-sm text-gray-500">Food Packed</span>
+                        </div>
+                        <div class="tracking-line"></div>
+                        {% else %}
+                        <div class="tracking-step pending">
+                            <div class="step-icon">○</div>
+                            <span class="text-sm text-gray-500">Food Packed</span>
+                        </div>
+                        <div class="tracking-line"></div>
+                        {% endif %}
+                        
+                        <!-- Step 4: Volunteer Collected -->
+                        {% if status in ['collected', 'in_transit', 'near_ngo', 'delivered', 'completed'] %}
+                        <div class="tracking-step completed">
+                            <div class="step-icon">✔</div>
+                            <span class="text-sm font-medium text-gray-700">Volunteer Collected</span>
+                        </div>
+                        <div class="tracking-line completed"></div>
+                        {% elif status == 'packed' %}
+                        <div class="tracking-step active">
+                            <div class="step-icon">⏳</div>
+                            <span class="text-sm text-gray-500">Volunteer Collected</span>
+                        </div>
+                        <div class="tracking-line"></div>
+                        {% else %}
+                        <div class="tracking-step pending">
+                            <div class="step-icon">○</div>
+                            <span class="text-sm text-gray-500">Volunteer Collected</span>
+                        </div>
+                        <div class="tracking-line"></div>
+                        {% endif %}
+                        
+                        <!-- Step 5: Food Near NGO -->
+                        {% if status in ['near_ngo', 'delivered', 'completed'] %}
+                        <div class="tracking-step completed">
+                            <div class="step-icon">✔</div>
+                            <span class="text-sm font-medium text-gray-700">Food Near NGO</span>
+                        </div>
+                        <div class="tracking-line completed"></div>
+                        {% elif status == 'in_transit' %}
+                        <div class="tracking-step active">
+                            <div class="step-icon">🚗</div>
+                            <span class="text-sm text-gray-500">Food Near NGO</span>
+                        </div>
+                        <div class="tracking-line"></div>
+                        {% else %}
+                        <div class="tracking-step pending">
+                            <div class="step-icon">○</div>
+                            <span class="text-sm text-gray-500">Food Near NGO</span>
+                        </div>
+                        <div class="tracking-line"></div>
+                        {% endif %}
+                        
+                        <!-- Step 6: Completed -->
+                        {% if status in ['delivered', 'completed'] %}
+                        <div class="tracking-step completed">
+                            <div class="step-icon">✔</div>
+                            <span class="text-sm font-medium text-green-600">Completed</span>
+                        </div>
+                        {% elif status == 'near_ngo' %}
+                        <div class="tracking-step active">
+                            <div class="step-icon">⏳</div>
+                            <span class="text-sm text-gray-500">Completed</span>
+                        </div>
+                        {% else %}
+                        <div class="tracking-step pending">
+                            <div class="step-icon">○</div>
+                            <span class="text-sm text-gray-500">Completed</span>
+                        </div>
+                        {% endif %}
                     </div>
-                    <p class="text-sm text-gray-600 mb-1"><strong>Vehicle:</strong> Bike/Car</p>
-                    <p class="text-sm text-gray-600 mb-1"><strong>Contact:</strong> +91 98765 43210</p>
-                    <p class="text-sm text-gray-600 mb-1"><strong>Current Task:</strong> {{ request.food_donor_name or 'N/A' }} → NGO</p>
-                    {% if request.status == 'assigned' %}
-                    <p class="text-sm text-blue-600"><strong>ETA to Pickup:</strong> {{ request.eta_minutes or 15 }} min</p>
+                    
+                    {% if req.volunteer_name %}
+                    <div class="mt-4 pt-3 border-t border-gray-200">
+                        <p class="text-sm text-purple-600"><strong>Volunteer:</strong> {{ req.volunteer_name }}</p>
+                    </div>
                     {% endif %}
                 </div>
                 {% endfor %}
-                {% if not assigned_requests %}
-                <p class="text-gray-500 col-span-full">No active volunteers currently.</p>
-                {% endif %}
             </div>
-        </div>
-        <!-- Progress Status Sections -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <!-- Ready to be collected -->
-            <section class="bg-white rounded-lg shadow-lg p-4">
-                <h3 class="text-xl font-semibold mb-4 text-blue-600">Ready to be Collected</h3>
-                {% if assigned_requests %}
-                    <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                    {% for req in assigned_requests %}
-                        <li class="py-2">
-                            <p><strong>Donor:</strong> {{ req.food_donor_name or 'N/A' }}</p>
-                            <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
-                            <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'Not assigned' }}</p>
-                        </li>
-                    {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-gray-600">No requests currently ready for collection.</p>
-                {% endif %}
-            </section>
-            <!-- Collected by Volunteer -->
-            <section class="bg-white rounded-lg shadow-lg p-4">
-                <h3 class="text-xl font-semibold mb-4 text-yellow-600">Collected by Volunteer</h3>
-                {% if collected_requests %}
-                    <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                    {% for req in collected_requests %}
-                        <li class="py-2">
-                            <p><strong>Donor:</strong> {{ req.food_donor_name or 'N/A' }}</p>
-                            <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
-                            <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'N/A' }}</p>
-                        </li>
-                    {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-gray-600">No collected requests currently.</p>
-                {% endif %}
-            </section>
-            <!-- In Transit to NGO -->
-            <section class="bg-white rounded-lg shadow-lg p-4">
-                <h3 class="text-xl font-semibold mb-4 text-green-600">In Transit to NGO</h3>
-                {% if in_transit_requests %}
-                    <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                    {% for req in in_transit_requests %}
-                        <li class="py-2">
-                            <p><strong>Donor:</strong> {{ req.food_donor_name or 'N/A' }}</p>
-                            <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
-                            <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'N/A' }}</p>
-                        </li>
-                    {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-gray-600">No items currently in transit.</p>
-                {% endif %}
-            </section>
-            <!-- Delivered to NGO -->
-            <section class="bg-white rounded-lg shadow-lg p-4">
-                <h3 class="text-xl font-semibold mb-4 text-gray-600">Delivered to NGO</h3>
-                {% if delivered_requests %}
-                    <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                    {% for req in delivered_requests %}
-                        <li class="py-2">
-                            <p><strong>Donor:</strong> {{ req.food_donor_name or 'N/A' }}</p>
-                            <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
-                            <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'N/A' }}</p>
-                        </li>
-                    {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-gray-600">No deliveries completed yet.</p>
-                {% endif %}
-            </section>
+            {% else %}
+            <p class="text-gray-500 text-center py-8">No active donations to track. Request a pickup from an NGO to get started!</p>
+            {% endif %}
         </div>
 
-        <!-- NGO Details and Volunteers Summary -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <!-- NGO Details Box -->
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <h3 class="text-xl font-semibold mb-4 text-gray-800">NGO Details</h3>
-                <div class="space-y-3">
-                    {% if ngos %}
-                        {% for ngo in ngos %}
-                        <div class="border-b border-gray-200 pb-3 last:border-b-0">
-                            <h4 class="font-medium text-gray-800">{{ ngo.name }}</h4>
-                            <p class="text-sm text-gray-600"><strong>Email:</strong> {{ ngo.email }}</p>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-sm text-gray-500">No NGOs currently receiving donations.</p>
+        <!-- Completed Donations -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-green-600">✅ Completed Donations</h2>
+            {% if delivered_requests %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for req in delivered_requests %}
+                <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <h4 class="font-semibold text-gray-800">{{ req.food_donor_name or 'Donation' }}</h4>
+                    <p class="text-sm text-gray-600">Delivered to: {{ req.ngo_name or 'NGO' }}</p>
+                    {% if req.volunteer_name %}
+                    <p class="text-sm text-purple-600">By: {{ req.volunteer_name }}</p>
                     {% endif %}
+                    <span class="inline-block mt-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded">✔ Completed</span>
                 </div>
+                {% endfor %}
             </div>
-            
-            <!-- Volunteers Summary -->
+            {% else %}
+            <p class="text-gray-600">No completed donations yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- Volunteers Summary -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <div class="bg-white rounded-lg shadow-lg p-6">
-                <h3 class="text-xl font-semibold mb-4 text-gray-800">Available Volunteers</h3>
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">🚴 Active Volunteers</h3>
                 <div class="space-y-3">
                     {% if volunteers %}
                         {% for vol in volunteers %}
-                        <div class="border-b border-gray-200 pb-3 last:border-b-0">
-                            <h4 class="font-medium text-gray-800">{{ vol.name }}</h4>
-                            <p class="text-sm text-gray-600"><strong>Contact:</strong> {{ vol.contact or 'N/A' }}</p>
-                            <p class="text-sm text-gray-600"><strong>Available:</strong> {{ vol.available_from or '08:00' }} - {{ vol.available_to or '20:00' }}</p>
+                        <div class="flex items-center justify-between border-b border-gray-200 pb-3 last:border-b-0">
+                            <div>
+                                <h4 class="font-medium text-gray-800">{{ vol.name }}</h4>
+                                <p class="text-sm text-gray-600">{{ vol.contact or 'N/A' }}</p>
+                            </div>
+                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">Available</span>
                         </div>
                         {% endfor %}
                     {% else %}
@@ -146,27 +243,51 @@
                     {% endif %}
                 </div>
             </div>
+            
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">🏢 Partner NGOs</h3>
+                <div class="space-y-3">
+                    {% if ngos %}
+                        {% for ngo in ngos %}
+                        <div class="border-b border-gray-200 pb-3 last:border-b-0">
+                            <h4 class="font-medium text-gray-800">{{ ngo.name }}</h4>
+                            <p class="text-sm text-gray-600">{{ ngo.email }}</p>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-sm text-gray-500">No NGOs in current tracking.</p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
 
         <!-- Status Legend -->
         <div class="bg-white rounded-lg shadow-lg p-6">
-            <h3 class="text-xl font-semibold mb-4">Status Legend</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <h3 class="text-xl font-semibold mb-4">📊 Status Legend</h3>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <div class="flex items-center">
                     <span class="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 mr-2">Pending</span>
-                    <span class="text-sm">Waiting for collection</span>
+                    <span class="text-sm">Awaiting NGO</span>
                 </div>
                 <div class="flex items-center">
                     <span class="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800 mr-2">Accepted</span>
-                    <span class="text-sm">NGO accepted donation</span>
+                    <span class="text-sm">NGO accepted</span>
                 </div>
                 <div class="flex items-center">
-                    <span class="px-2 py-1 rounded text-xs bg-green-100 text-green-800 mr-2">In Transit</span>
-                    <span class="text-sm">On the way to NGO</span>
+                    <span class="px-2 py-1 rounded text-xs bg-orange-100 text-orange-800 mr-2">Packed</span>
+                    <span class="text-sm">Food ready</span>
                 </div>
                 <div class="flex items-center">
-                    <span class="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800 mr-2">Delivered</span>
-                    <span class="text-sm">Successfully delivered</span>
+                    <span class="px-2 py-1 rounded text-xs bg-purple-100 text-purple-800 mr-2">Collected</span>
+                    <span class="text-sm">Picked up</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="px-2 py-1 rounded text-xs bg-indigo-100 text-indigo-800 mr-2">In Transit</span>
+                    <span class="text-sm">On the way</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="px-2 py-1 rounded text-xs bg-green-100 text-green-800 mr-2">Delivered</span>
+                    <span class="text-sm">Complete</span>
                 </div>
             </div>
         </div>

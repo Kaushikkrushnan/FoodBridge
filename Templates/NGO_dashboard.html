@@ -233,8 +233,26 @@
 
         function markCompleted(donationId) {
             if (!confirm('Mark this donation as completed?')) return;
-            alert('Donation marked as completed! SMS notification sent to the donor.');
-            // TODO: Implement backend call to update status
+            
+            fetch('/mark_donation_completed', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ request_id: donationId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Donation marked as completed! SMS notification sent to the donor.');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('AJAX error: ' + err);
+            });
         }
 
         window.onclick = function(event) {

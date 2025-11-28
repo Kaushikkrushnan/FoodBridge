@@ -121,6 +121,136 @@ def ngo_accept_donation():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@dashboard_bp.route('/mark_donation_completed', methods=['POST'])
+def mark_donation_completed():
+    """
+    Mark a donation as completed. Updates status and sends SMS notifications.
+    Expects JSON: { 'request_id': ... }
+    """
+    data = request.get_json()
+    request_id = data.get('request_id')
+    
+    if not request_id:
+        return jsonify({'success': False, 'error': 'Missing request_id'}), 400
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        assign_conn = get_assignment_db_connection()
+        
+        # Update status to delivered/completed
+        assign_conn.execute('''
+            UPDATE food_donor_requests
+            SET status = 'delivered', ngo_acceptance_status = 'completed'
+            WHERE id = ?
+        ''', (request_id,))
+        assign_conn.commit()
+        
+        # Get request info for SMS
+        request_info = assign_conn.execute('''
+            SELECT fdr.food_donor_id, fdr.food_donor_name, fdr.ngo_name, fdr.ngo_id
+            FROM food_donor_requests fdr
+            WHERE fdr.id = ?
+        ''', (request_id,)).fetchone()
+        assign_conn.close()
+        
+        if request_info:
+            # Get donor and NGO phone numbers
+            app_conn = get_db_connection()
+            donor = app_conn.execute('SELECT phone FROM food_donors WHERE id = ?', 
+                                    (request_info['food_donor_id'],)).fetchone()
+            app_conn.close()
+            
+            # Send completion SMS
+            if donor and donor['phone']:
+                try:
+                    from utils.sms_service import notify_donation_completed
+                    notify_donation_completed(
+                        donor_phone=donor['phone'],
+                        ngo_phone=None,  # Add NGO phone if available
+                        donor_name=request_info['food_donor_name'],
+                        ngo_name=request_info['ngo_name']
+                    )
+                except Exception as sms_error:
+                    print(f'[SMS] Failed to send completion notification: {sms_error}')
+        
+        return jsonify({'success': True, 'message': 'Donation marked as completed'})
+    except Exception as e:
+        import traceback
+        print('[ERROR] Exception in mark_donation_completed:')
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/update_tracking_status', methods=['POST'])
+def update_tracking_status():
+    """
+    Update the tracking status of a donation.
+    Expects JSON: { 'request_id': ..., 'status': 'packed' | 'collected' | 'near_ngo' | 'completed' }
+    """
+    data = request.get_json()
+    request_id = data.get('request_id')
+    new_status = data.get('status')
+    
+    valid_statuses = ['packed', 'collected', 'in_transit', 'near_ngo', 'delivered', 'completed']
+    
+    if not request_id or not new_status:
+        return jsonify({'success': False, 'error': 'Missing request_id or status'}), 400
+    
+    if new_status not in valid_statuses:
+        return jsonify({'success': False, 'error': f'Invalid status. Must be one of: {valid_statuses}'}), 400
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        assign_conn = get_assignment_db_connection()
+        
+        # Update status
+        assign_conn.execute('''
+            UPDATE food_donor_requests
+            SET status = ?
+            WHERE id = ?
+        ''', (new_status, request_id))
+        assign_conn.commit()
+        
+        # Get request info for SMS
+        request_info = assign_conn.execute('''
+            SELECT fdr.food_donor_id, fdr.food_donor_name, fdr.ngo_name, fdr.ngo_id
+            FROM food_donor_requests fdr
+            WHERE fdr.id = ?
+        ''', (request_id,)).fetchone()
+        assign_conn.close()
+        
+        if request_info:
+            app_conn = get_db_connection()
+            donor = app_conn.execute('SELECT phone FROM food_donors WHERE id = ?', 
+                                    (request_info['food_donor_id'],)).fetchone()
+            app_conn.close()
+            
+            # Send appropriate SMS based on status
+            if donor and donor['phone']:
+                try:
+                    from utils.sms_service import send_sms
+                    status_messages = {
+                        'packed': f"FoodBridge: Food from {request_info['food_donor_name']} is packed and ready for pickup.",
+                        'collected': f"FoodBridge: Volunteer has collected food from {request_info['food_donor_name']}.",
+                        'in_transit': f"FoodBridge: Food is on the way to {request_info['ngo_name']}.",
+                        'near_ngo': f"FoodBridge: Food is near {request_info['ngo_name']}. Delivery soon!",
+                        'delivered': f"FoodBridge: Food delivered to {request_info['ngo_name']}. Thank you!",
+                        'completed': f"FoodBridge: Donation from {request_info['food_donor_name']} completed successfully!"
+                    }
+                    message = status_messages.get(new_status)
+                    if message:
+                        send_sms(donor['phone'], message)
+                except Exception as sms_error:
+                    print(f'[SMS] Failed to send status update: {sms_error}')
+        
+        return jsonify({'success': True, 'status': new_status})
+    except Exception as e:
+        import traceback
+        print('[ERROR] Exception in update_tracking_status:')
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @dashboard_bp.route('/donor_dashboard')
 def donor_dashboard():
     from flask import session
@@ -619,6 +749,8 @@ def progress():
 
     # Fetch assignment data for the logged-in user from assignment.db
     user_email = session.get('user_email')
+    user_role = session.get('user_role') or session.get('user_type')
+    user_id = session.get('user_id')
     user_assignments = []
     if user_email:
         try:
@@ -626,6 +758,21 @@ def progress():
             user_assignments = get_user_assignments(user_email)
         except Exception as e:
             user_assignments = []
+    
+    # Filter requests based on user role
+    if user_role == 'food_donor' and user_id:
+        # For donors, show only their requests
+        assigned_requests_list = [r for r in assigned_requests_list if r.get('food_donor_id') == user_id]
+        collected_requests_list = [r for r in collected_requests_list if r.get('food_donor_id') == user_id]
+        in_transit_requests_list = [r for r in in_transit_requests_list if r.get('food_donor_id') == user_id]
+        delivered_requests_list = [r for r in delivered_requests_list if r.get('food_donor_id') == user_id]
+    elif user_role == 'NGO' and user_id:
+        # For NGOs, show only requests to their NGO
+        assigned_requests_list = [r for r in assigned_requests_list if r.get('ngo_id') == user_id]
+        collected_requests_list = [r for r in collected_requests_list if r.get('ngo_id') == user_id]
+        in_transit_requests_list = [r for r in in_transit_requests_list if r.get('ngo_id') == user_id]
+        delivered_requests_list = [r for r in delivered_requests_list if r.get('ngo_id') == user_id]
+    
     return render_template('progress.html', 
                            assigned_requests=assigned_requests_list,
                            collected_requests=collected_requests_list,
@@ -636,6 +783,7 @@ def progress():
                            donors=donors_list,
                            complaints=complaints_list,
                            user_contact=session.get('user_contact'),
+                           user_role=user_role,
                            user_assignments=user_assignments)
 
 
