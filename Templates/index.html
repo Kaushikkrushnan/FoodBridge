@@ -37,13 +37,21 @@
 <body>
 	<div class="wrapper">
 		<!-- Top-right user info display for any logged-in user -->
-		{% if user_name and user_email and db_session_id %}
-		<div class="food-donor-login-key">
-			Logged in as: <span class="font-bold">{{ user_name }}</span><br>
-			Email: <span>{{ user_email }}</span><br>
-			Session ID: <span>{{ db_session_id }}</span>
+		{% if is_logged_in %}
+		<div class="food-donor-login-key" style="max-width: 300px;">
+			<div style="font-size: 12px; opacity: 0.9;">Logged in as:</div>
+			<div class="font-bold">{{ user_name }}</div>
+			{% if user_email %}
+			<div style="font-size: 12px;">{{ user_email }}</div>
+			{% endif %}
+			{% if user_phone %}
+			<div style="font-size: 12px;">{{ user_phone }}</div>
+			{% endif %}
+			{% if user_role %}
+			<div style="font-size: 11px; opacity: 0.8; margin-top: 4px;">Role: {{ user_role }}</div>
+			{% endif %}
 		</div>
-		<div style="position: fixed; top: 70px; right: 10px; z-index: 1000;">
+		<div style="position: fixed; top: 100px; right: 10px; z-index: 1000;">
 			<a href="{{ url_for('auth.logout') }}" class="food-donor-login-key" style="background-color: #e53e3e; color: white;">Logout</a>
 		</div>
 		{% endif %}
@@ -131,7 +139,7 @@
 					Monitor your food donation journey in real-time. Track pickup, transport, and delivery status.
 				</p>
 				<div class="flex justify-center space-x-4">
-          {% if user_id %}
+          {% if is_logged_in %}
 					<a
 						href="{{ url_for('dashboard.progress') }}"
 						class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition duration-300 inline-block"
@@ -139,10 +147,10 @@
 					>
           {% else %}
 					<a
-						href="{{ url_for('dashboard.progress') }}"
-						class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition duration-300 inline-block disabled-button"
-						aria-disabled="true"
-					>View Progress Tracking</a>
+						href="#"
+						class="bg-gray-400 text-white font-bold py-3 px-8 rounded-lg transition duration-300 inline-block cursor-not-allowed"
+						onclick="alert('Please login first to access Live Tracking'); return false;"
+					>View Progress Tracking (Login Required)</a>
           {% endif %}
 				</div>
 			</div>

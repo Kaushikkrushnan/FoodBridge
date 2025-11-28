@@ -6,6 +6,9 @@
         <div class="text-center mb-8">
             <h1 class="text-4xl font-bold text-gray-800 mb-2">Live Progress Tracking</h1>
             <p class="text-lg text-gray-600">Real-time tracking of food donations and volunteer movements</p>
+            {% if user_name %}
+            <p class="text-md text-blue-600 mt-2">Showing tracking for: <strong>{{ user_name }}</strong> ({{ user_role or 'User' }})</p>
+            {% endif %}
         </div>
         <!-- Navigation -->
         <div class="flex justify-center mb-8">
@@ -13,104 +16,114 @@
             <a href="{{ url_for('dashboard.donor_dashboard') }}" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition duration-300 mr-4">Food Donor Dashboard</a>
             <a href="{{ url_for('dashboard.ngo_dashboard') }}" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300">NGO Dashboard</a>
         </div>
-        <!-- Top Section: Volunteer Transport Details -->
-        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
-            <h2 class="text-2xl font-semibold mb-4">Transport Volunteers</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {% for request in assigned_requests %}
-                <div class="volunteer-card {% if request.status == 'assigned' %}active{% endif %} bg-gray-50 p-4 rounded-lg border">
-                    <div class="flex justify-between items-start mb-2">
-                        <h4 class="font-semibold text-gray-800">{{ request.volunteer_name or 'Unassigned' }}</h4>
-                        <span class="status-badge status-{{ request.status }} px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
-                            {{ request.status.replace('_', ' ').title() if request.status else 'Pending' }}
+        
+        <!-- My Assignments Section with Step Tracking -->
+        {% if user_assignments %}
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8 border-l-4 border-blue-500">
+            <h2 class="text-2xl font-semibold mb-4 text-blue-800">📋 My Assignments</h2>
+            <div class="space-y-6">
+                {% for assignment in user_assignments %}
+                <div class="bg-blue-50 p-6 rounded-lg border border-blue-200" id="assignment-{{ assignment.id }}">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-800 text-lg">Assignment #{{ assignment.id }}</h4>
+                            <p class="text-sm text-gray-600"><strong>Food Donor:</strong> {{ assignment.food_donor_name or 'N/A' }}</p>
+                            <p class="text-sm text-gray-600"><strong>NGO:</strong> {{ assignment.ngo_name or 'N/A' }}</p>
+                            <p class="text-sm text-gray-600"><strong>Volunteer:</strong> {{ assignment.volunteer_name or 'Not assigned yet' }}</p>
+                        </div>
+                        <span class="px-3 py-1 rounded text-sm font-semibold
+                            {% if assignment.request_status == 'completed' %}bg-green-500 text-white
+                            {% elif assignment.request_status == 'accepted' %}bg-blue-500 text-white
+                            {% elif assignment.request_status == 'requested' %}bg-yellow-500 text-white
+                            {% else %}bg-gray-500 text-white{% endif %}">
+                            {{ assignment.request_status.title() if assignment.request_status else 'Pending' }}
                         </span>
                     </div>
-                    <p class="text-sm text-gray-600 mb-1"><strong>Vehicle:</strong> Bike/Car</p>
-                    <p class="text-sm text-gray-600 mb-1"><strong>Contact:</strong> +91 98765 43210</p>
-                    <p class="text-sm text-gray-600 mb-1"><strong>Current Task:</strong> {{ request.food_donor_name or 'N/A' }} → NGO</p>
-                    {% if request.status == 'assigned' %}
-                    <p class="text-sm text-blue-600"><strong>ETA to Pickup:</strong> {{ request.eta_minutes or 15 }} min</p>
-                    {% endif %}
+                    
+                    <!-- Progress Steps -->
+                    <div class="mt-4">
+                        <div class="flex items-center justify-between">
+                            <!-- Step 1: Food Packed -->
+                            <div class="flex flex-col items-center flex-1">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center
+                                    {% if assignment.food_packed %}bg-green-500 text-white{% else %}bg-gray-300 text-gray-600{% endif %}">
+                                    {% if assignment.food_packed %}✓{% else %}1{% endif %}
+                                </div>
+                                <p class="text-xs mt-1 text-center {% if assignment.food_packed %}text-green-600 font-semibold{% else %}text-gray-500{% endif %}">Food Packed</p>
+                            </div>
+                            <div class="flex-1 h-1 {% if assignment.food_packed %}bg-green-500{% else %}bg-gray-300{% endif %}"></div>
+                            
+                            <!-- Step 2: Collected by Volunteer -->
+                            <div class="flex flex-col items-center flex-1">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center
+                                    {% if assignment.volunteer_collected %}bg-green-500 text-white{% else %}bg-gray-300 text-gray-600{% endif %}">
+                                    {% if assignment.volunteer_collected %}✓{% else %}2{% endif %}
+                                </div>
+                                <p class="text-xs mt-1 text-center {% if assignment.volunteer_collected %}text-green-600 font-semibold{% else %}text-gray-500{% endif %}">Collected</p>
+                            </div>
+                            <div class="flex-1 h-1 {% if assignment.volunteer_collected %}bg-green-500{% else %}bg-gray-300{% endif %}"></div>
+                            
+                            <!-- Step 3: Reached NGO -->
+                            <div class="flex flex-col items-center flex-1">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center
+                                    {% if assignment.reached_ngo %}bg-green-500 text-white{% else %}bg-gray-300 text-gray-600{% endif %}">
+                                    {% if assignment.reached_ngo %}✓{% else %}3{% endif %}
+                                </div>
+                                <p class="text-xs mt-1 text-center {% if assignment.reached_ngo %}text-green-600 font-semibold{% else %}text-gray-500{% endif %}">Reached NGO</p>
+                            </div>
+                            <div class="flex-1 h-1 {% if assignment.completed %}bg-green-500{% else %}bg-gray-300{% endif %}"></div>
+                            
+                            <!-- Step 4: Completed -->
+                            <div class="flex flex-col items-center flex-1">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center
+                                    {% if assignment.completed %}bg-green-500 text-white{% else %}bg-gray-300 text-gray-600{% endif %}">
+                                    {% if assignment.completed %}✓{% else %}4{% endif %}
+                                </div>
+                                <p class="text-xs mt-1 text-center {% if assignment.completed %}text-green-600 font-semibold{% else %}text-gray-500{% endif %}">Completed</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons based on user role and status -->
+                    <div class="mt-4 flex gap-2 flex-wrap">
+                        {% if user_role == 'food_donor' or user_role == 'Donor' %}
+                            {% if assignment.request_status == 'accepted' and not assignment.food_packed %}
+                            <button onclick="markFoodPacked({{ assignment.id }})" 
+                                class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
+                                ✓ Mark Food Packed & Ready
+                            </button>
+                            {% elif assignment.food_packed %}
+                            <span class="text-green-600 font-semibold">✓ Food Packed</span>
+                            {% endif %}
+                        {% endif %}
+                        
+                        {% if user_role == 'NGO' %}
+                            {% if assignment.request_status == 'requested' %}
+                            <button onclick="acceptDonorRequest({{ assignment.id }})" 
+                                class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                                Accept Donation Request
+                            </button>
+                            {% elif assignment.reached_ngo and not assignment.completed %}
+                            <button onclick="markComplete({{ assignment.id }})" 
+                                class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
+                                ✓ Mark as Done
+                            </button>
+                            {% elif assignment.completed %}
+                            <span class="text-green-600 font-semibold">✓ Donation Completed</span>
+                            {% endif %}
+                        {% endif %}
+                    </div>
                 </div>
                 {% endfor %}
-                {% if not assigned_requests %}
-                <p class="text-gray-500 col-span-full">No active volunteers currently.</p>
-                {% endif %}
             </div>
         </div>
-        <!-- Progress Status Sections -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <!-- Ready to be collected -->
-            <section class="bg-white rounded-lg shadow-lg p-4">
-                <h3 class="text-xl font-semibold mb-4 text-blue-600">Ready to be Collected</h3>
-                {% if assigned_requests %}
-                    <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                    {% for req in assigned_requests %}
-                        <li class="py-2">
-                            <p><strong>Donor:</strong> {{ req.food_donor_name or 'N/A' }}</p>
-                            <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
-                            <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'Not assigned' }}</p>
-                        </li>
-                    {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-gray-600">No requests currently ready for collection.</p>
-                {% endif %}
-            </section>
-            <!-- Collected by Volunteer -->
-            <section class="bg-white rounded-lg shadow-lg p-4">
-                <h3 class="text-xl font-semibold mb-4 text-yellow-600">Collected by Volunteer</h3>
-                {% if collected_requests %}
-                    <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                    {% for req in collected_requests %}
-                        <li class="py-2">
-                            <p><strong>Donor:</strong> {{ req.food_donor_name or 'N/A' }}</p>
-                            <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
-                            <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'N/A' }}</p>
-                        </li>
-                    {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-gray-600">No collected requests currently.</p>
-                {% endif %}
-            </section>
-            <!-- In Transit to NGO -->
-            <section class="bg-white rounded-lg shadow-lg p-4">
-                <h3 class="text-xl font-semibold mb-4 text-green-600">In Transit to NGO</h3>
-                {% if in_transit_requests %}
-                    <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                    {% for req in in_transit_requests %}
-                        <li class="py-2">
-                            <p><strong>Donor:</strong> {{ req.food_donor_name or 'N/A' }}</p>
-                            <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
-                            <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'N/A' }}</p>
-                        </li>
-                    {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-gray-600">No items currently in transit.</p>
-                {% endif %}
-            </section>
-            <!-- Delivered to NGO -->
-            <section class="bg-white rounded-lg shadow-lg p-4">
-                <h3 class="text-xl font-semibold mb-4 text-gray-600">Delivered to NGO</h3>
-                {% if delivered_requests %}
-                    <ul class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                    {% for req in delivered_requests %}
-                        <li class="py-2">
-                            <p><strong>Donor:</strong> {{ req.food_donor_name or 'N/A' }}</p>
-                            <p><strong>NGO:</strong> {{ req.ngo_name or 'N/A' }}</p>
-                            <p><strong>Volunteer:</strong> {{ req.volunteer_name or 'N/A' }}</p>
-                        </li>
-                    {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-gray-600">No deliveries completed yet.</p>
-                {% endif %}
-            </section>
+        {% else %}
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8 text-center">
+            <p class="text-gray-500">No assignments found. Please login and accept an NGO or donation to see tracking.</p>
         </div>
+        {% endif %}
 
-        <!-- NGO Details and Volunteers Summary -->
+        <!-- NGO Details and Assigned Volunteers -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <!-- NGO Details Box -->
             <div class="bg-white rounded-lg shadow-lg p-6">
@@ -129,9 +142,9 @@
                 </div>
             </div>
             
-            <!-- Volunteers Summary -->
+            <!-- Assigned Volunteers Box -->
             <div class="bg-white rounded-lg shadow-lg p-6">
-                <h3 class="text-xl font-semibold mb-4 text-gray-800">Available Volunteers</h3>
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">Assigned Volunteers</h3>
                 <div class="space-y-3">
                     {% if volunteers %}
                         {% for vol in volunteers %}
@@ -142,7 +155,7 @@
                         </div>
                         {% endfor %}
                     {% else %}
-                        <p class="text-sm text-gray-500">No volunteers currently available.</p>
+                        <p class="text-sm text-gray-500">No volunteers assigned to your requests.</p>
                     {% endif %}
                 </div>
             </div>
@@ -153,22 +166,78 @@
             <h3 class="text-xl font-semibold mb-4">Status Legend</h3>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="flex items-center">
-                    <span class="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 mr-2">Pending</span>
-                    <span class="text-sm">Waiting for collection</span>
+                    <span class="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800 mr-2">Requested</span>
+                    <span class="text-sm">Waiting for NGO acceptance</span>
                 </div>
                 <div class="flex items-center">
-                    <span class="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800 mr-2">Accepted</span>
+                    <span class="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 mr-2">Accepted</span>
                     <span class="text-sm">NGO accepted donation</span>
                 </div>
                 <div class="flex items-center">
-                    <span class="px-2 py-1 rounded text-xs bg-green-100 text-green-800 mr-2">In Transit</span>
-                    <span class="text-sm">On the way to NGO</span>
+                    <span class="px-2 py-1 rounded text-xs bg-green-100 text-green-800 mr-2">In Progress</span>
+                    <span class="text-sm">Food packed/Volunteer assigned</span>
                 </div>
                 <div class="flex items-center">
-                    <span class="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800 mr-2">Delivered</span>
+                    <span class="px-2 py-1 rounded text-xs bg-green-500 text-white mr-2">Completed</span>
                     <span class="text-sm">Successfully delivered</span>
                 </div>
             </div>
         </div>
     </div>
+    
+    <script>
+        function markFoodPacked(assignmentId) {
+            fetch('/mark_food_packed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assignment_id: assignmentId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Food marked as packed! Volunteer has been assigned.');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => alert('Error: ' + err));
+        }
+        
+        function acceptDonorRequest(assignmentId) {
+            fetch('/ngo/accept_donor_request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assignment_id: assignmentId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Request accepted!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => alert('Error: ' + err));
+        }
+        
+        function markComplete(assignmentId) {
+            fetch('/mark_donation_complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assignment_id: assignmentId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Donation marked as complete!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => alert('Error: ' + err));
+        }
+    </script>
 {% endblock %}
