@@ -18,17 +18,50 @@ def accept_ngo():
     ngo_name = data.get('ngo_name')
     # Get donor info from session
     print('[DEBUG] Session in /accept_ngo:', dict(session))
+    
+    # Try to get donor info from session first
     donor_name = session.get('user_name')
     donor_id = session.get('user_id')
+    
+    # If session doesn't have donor info, try to get from database session
+    if not donor_name or not donor_id:
+        db_session_id = session.get('db_session_id')
+        if db_session_id:
+            db_user = get_user_from_session(db_session_id)
+            if db_user:
+                donor_name = db_user.get('user_name')
+                donor_id = db_user.get('user_id')
+                update_session_activity(db_session_id)
+    
+    # If still no donor info, try to get from user_contact (for food donors logged in via phone)
+    if not donor_name or not donor_id:
+        user_contact = session.get('user_contact')
+        if user_contact:
+            try:
+                conn = get_db_connection()
+                donor_record = conn.execute(
+                    'SELECT id, organization_name FROM food_donors WHERE phone = ? OR email = ?',
+                    (user_contact, user_contact)
+                ).fetchone()
+                conn.close()
+                if donor_record:
+                    donor_id = donor_record['id']
+                    donor_name = donor_record['organization_name']
+                    # Update session with the found values
+                    session['user_id'] = donor_id
+                    session['user_name'] = donor_name
+            except Exception as e:
+                print(f'[DEBUG] Error fetching donor from contact: {e}')
+    
     missing = []
     if not ngo_id:
         missing.append('ngo_id')
     if not ngo_name:
         missing.append('ngo_name')
     if not donor_name:
-        missing.append('donor_name')
+        missing.append('donor_name (Please login as a food donor first)')
     if not donor_id:
-        missing.append('donor_id')
+        missing.append('donor_id (Please login as a food donor first)')
     if missing:
         return jsonify({'success': False, 'error': f'Missing required fields: {", ".join(missing)}'}), 400
     try:
