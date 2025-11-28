@@ -60,8 +60,20 @@ def ngo_accept_donation():
         return jsonify({'success': False, 'error': 'Missing request_id'}), 400
     import traceback
     try:
-        from database.assignment_db import accept_food_donation_request
-        accept_food_donation_request(request_id)
+        # Get current NGO info from session
+        ngo_id = session.get('user_id')
+        ngo_name = session.get('user_name')
+        
+        # Update the food_donors table to mark this donation as accepted
+        conn = get_db_connection()
+        conn.execute('''
+            UPDATE food_donors 
+            SET status = 'accepted', selected_ngo_id = ?
+            WHERE id = ?
+        ''', (ngo_id, request_id))
+        conn.commit()
+        conn.close()
+        
         return jsonify({'success': True})
     except Exception as e:
         print('[ERROR] Exception in ngo_accept_donation:')
@@ -88,6 +100,7 @@ def donor_dashboard():
             update_session_activity(db_session_id)
             user_info = db_user
             current_donor_name = db_user.get('user_name', None)
+            current_donor_id = db_user.get('user_id', None)
         else:
             # Fallback to Flask session
             user_info = {
@@ -98,6 +111,7 @@ def donor_dashboard():
                 'user_verified': session.get('user_verified', False)
             }
             current_donor_name = session.get('user_name', None)
+            current_donor_id = session.get('user_id', None)
     else:
         # Fallback to Flask session
         user_info = {
@@ -108,30 +122,63 @@ def donor_dashboard():
             'user_verified': session.get('user_verified', False)
         }
         current_donor_name = session.get('user_name', None)
+        current_donor_id = session.get('user_id', None)
     print('[DEBUG] donor_dashboard user_info:', user_info)
     print('[DEBUG] donor_dashboard current_donor_name:', current_donor_name)
     
     auth_conn = get_auth_db_connection()
     app_conn = get_db_connection()
 
-    # Get all users from auth.db
+    # Get all verified NGOs from auth.db
     all_ngos = auth_conn.execute('''
         SELECT id, name, email, registration_number, verified
         FROM users
+        WHERE verified = 1
         ORDER BY name
     ''').fetchall()
 
-    # For now, show all NGOs from auth.db as available
-    # TODO: Implement proper categorization based on food_requests status
-    available_ngos = [dict(ngo) for ngo in all_ngos]
+    # Get assigned/accepted NGOs for this donor from assignment database
+    from database.assignment_db import get_assignment_db_connection
+    assign_conn = get_assignment_db_connection()
+    
+    # Get requested NGOs (pending acceptance)
+    requested_ngo_ids = []
+    accepted_ngo_ids = []
+    
+    if current_donor_id:
+        requested_assignments = assign_conn.execute('''
+            SELECT DISTINCT ngo_id, ngo_name FROM ngo_assignments 
+            WHERE food_donor_id = ? AND request_status = 'requested'
+        ''', (current_donor_id,)).fetchall()
+        requested_ngo_ids = [row['ngo_id'] for row in requested_assignments]
+        
+        accepted_assignments = assign_conn.execute('''
+            SELECT DISTINCT ngo_id, ngo_name FROM ngo_assignments 
+            WHERE food_donor_id = ? AND request_status = 'accepted'
+        ''', (current_donor_id,)).fetchall()
+        accepted_ngo_ids = [row['ngo_id'] for row in accepted_assignments]
+    
+    assign_conn.close()
+    
+    # Categorize NGOs
+    available_ngos = []
     requested_ngos = []
     accepted_ngos = []
+    
+    for ngo in all_ngos:
+        ngo_dict = dict(ngo)
+        if ngo_dict['id'] in accepted_ngo_ids:
+            accepted_ngos.append(ngo_dict)
+        elif ngo_dict['id'] in requested_ngo_ids:
+            requested_ngos.append(ngo_dict)
+        else:
+            available_ngos.append(ngo_dict)
 
     # Fetch food donations submitted by current donor from food_donors table
     if current_donor_name:
         donor_food_donations = app_conn.execute('''
             SELECT id, organization_name, food_type, quantity, ready_for_pickup_time, pickup_location,
-                   category, cuisine_type, spice_level, created_at
+                   category, cuisine_type, spice_level, created_at, status, selected_ngo_id
             FROM food_donors
             WHERE organization_name = ?
             ORDER BY created_at DESC
@@ -184,28 +231,38 @@ def ngo_dashboard():
     
     from database.assignment_db import get_assignment_db_connection
     conn = get_assignment_db_connection()
+    app_conn = get_db_connection()
 
     ngo_id = user_info.get('user_id')
-    # Show all food donors assigned to this NGO from both tables
-    available_donations = conn.execute('''
-        SELECT a.id, a.food_donor_id, a.food_donor_name, a.ngo_id, a.ngo_name, r.status, r.ngo_acceptance_status, a.assigned_at
-        FROM ngo_assignments a
-        LEFT JOIN food_donor_requests r ON a.id = r.assignment_id
-        WHERE a.ngo_id = ? AND (r.status IS NULL OR r.status = 'pending')
-        ORDER BY a.assigned_at DESC
-    ''', (ngo_id,)).fetchall() if ngo_id else []
+    
+    # Get available donations - fetch from food_donors table with food details
+    available_donations = app_conn.execute('''
+        SELECT fd.id, fd.organization_name as food_donor_name, fd.food_type, fd.quantity,
+               fd.ready_for_pickup_time as pickup_time, fd.pickup_location,
+               fd.category as food_category, fd.cuisine_type, fd.spice_level,
+               fd.status, fd.created_at, fd.phone, fd.email
+        FROM food_donors fd
+        WHERE fd.status = 'available' OR fd.status = 'pending'
+        ORDER BY fd.created_at DESC
+    ''').fetchall()
     available_donations_dict = [dict(row) for row in available_donations]
 
-    accepted_donations = conn.execute('''
-        SELECT a.id, a.food_donor_id, a.food_donor_name, a.ngo_id, a.ngo_name, r.status, r.ngo_acceptance_status, a.acceptance_time
-        FROM ngo_assignments a
-        LEFT JOIN food_donor_requests r ON a.id = r.assignment_id
-        WHERE a.ngo_id = ? AND r.status = 'accepted'
-        ORDER BY a.acceptance_time DESC
+    # Get accepted donations for this NGO
+    accepted_donations = app_conn.execute('''
+        SELECT fd.id, fd.organization_name as food_donor_name, fd.food_type, fd.quantity,
+               fd.ready_for_pickup_time as pickup_time, fd.pickup_location,
+               fd.category as food_category, fd.cuisine_type, fd.spice_level,
+               fd.status, fd.created_at, fd.phone, fd.email,
+               v.name as volunteer_name, v.contact as volunteer_contact
+        FROM food_donors fd
+        LEFT JOIN volunteers v ON fd.assigned_volunteer_id = v.id
+        WHERE fd.status = 'accepted' AND fd.selected_ngo_id = ?
+        ORDER BY fd.created_at DESC
     ''', (ngo_id,)).fetchall() if ngo_id else []
     accepted_donations_dict = [dict(row) for row in accepted_donations]
 
     conn.close()
+    app_conn.close()
 
     return render_template('NGO_dashboard.html', 
                          available_donations=available_donations_dict, 
