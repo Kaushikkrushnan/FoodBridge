@@ -16,21 +16,31 @@ auth_bp = Blueprint('auth', __name__)
 def food_donor_register():
     if request.method == 'GET':
         conn = get_db_connection()
-        ngos = conn.execute('SELECT id, name FROM ngos').fetchall()
+        ngos = conn.execute('SELECT id, name, lat, lon FROM ngos').fetchall()
         conn.close()
         return render_template('food_donor_registration.html', ngos=ngos)
     else:
         name = request.form.get('name')
-        email = request.form.get('email')
         phone = request.form.get('phone')
         whatsapp_phone = request.form.get('whatsapp_phone')
         vehicle_type = request.form.get('vehicle_type')
         address = request.form.get('address')
-        # password = request.form.get('password')
-        # confirm_password = request.form.get('confirm_password')
+        lat = request.form.get('lat')
+        lon = request.form.get('lon')
 
         if not all([name, phone, whatsapp_phone, vehicle_type, address]):
-            return render_template('food_donor_registration.html', error_message='All fields are required.')
+            conn = get_db_connection()
+            ngos = conn.execute('SELECT id, name, lat, lon FROM ngos').fetchall()
+            conn.close()
+            return render_template('food_donor_registration.html', ngos=ngos, error_message='All fields are required.')
+
+        # Convert lat/lon to float if provided
+        try:
+            lat = float(lat) if lat else None
+            lon = float(lon) if lon else None
+        except (ValueError, TypeError):
+            lat = None
+            lon = None
 
         # Save data to food_donors table (SQLite) only
         conn = get_db_connection()
@@ -38,13 +48,14 @@ def food_donor_register():
         if not donor_record:
             try:
                 insert_cursor = conn.execute('''
-                    INSERT INTO food_donors (organization_name, email, phone, whatsapp_phone, vehicle_type, address, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ''', (name, email, phone, whatsapp_phone, vehicle_type, address))
+                    INSERT INTO food_donors (organization_name, phone, whatsapp_phone, vehicle_type, address, lat, lon, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ''', (name, phone, whatsapp_phone, vehicle_type, address, lat, lon))
                 conn.commit()
             except Exception as e:
                 conn.close()
-                return render_template('food_donor_registration.html', error_message='Database error: ' + str(e))
+                ngos = get_db_connection().execute('SELECT id, name, lat, lon FROM ngos').fetchall()
+                return render_template('food_donor_registration.html', ngos=ngos, error_message='Database error: ' + str(e))
         donor_record = conn.execute('SELECT * FROM food_donors WHERE phone = ?', (phone,)).fetchone()
         conn.close()
 
@@ -77,16 +88,41 @@ def food_donor_register():
                     ngo_name=ngo_name
                 )
                 print(f"DEBUG: Inserted into food_donor_requests: donor_id={donor_record['id']}, ngo_id={ngo_id}, assignment_id={assignment_id}")
+                
+                # Send SMS notification for request sent
+                try:
+                    from utils.sms_service import notify_request_sent
+                    notify_request_sent(
+                        donor_phone=donor_record['phone'],
+                        donor_name=donor_record['organization_name'],
+                        ngo_name=ngo_name
+                    )
+                except Exception as e:
+                    print(f"[SMS] Failed to send notification: {e}")
+
+            # Send welcome SMS to donor
+            try:
+                from utils.sms_service import notify_donor_welcome
+                notify_donor_welcome(
+                    donor_phone=donor_record['phone'],
+                    donor_name=donor_record['organization_name']
+                )
+            except Exception as e:
+                print(f"[SMS] Failed to send welcome message: {e}")
 
             session['user_id'] = donor_record['id']
-            session['user_session_key'] = f"donor_{donor_record['id']}_{donor_record['email'] or donor_record['phone']}"
+            session['user_session_key'] = f"donor_{donor_record['id']}_{donor_record['phone']}"
             session['user_type'] = 'food_donor'
             session['user_name'] = donor_record['organization_name']
-            session['user_contact'] = donor_record['email'] if donor_record['email'] else donor_record['phone']
+            session['user_contact'] = donor_record['phone']
+            session['user_role'] = 'food_donor'
             print('[DEBUG] Session after donor registration:', dict(session))
             return redirect(url_for('dashboard.donor_dashboard'))
         else:
-            return render_template('food_donor_registration.html', error_message='Registration failed.')
+            conn = get_db_connection()
+            ngos = conn.execute('SELECT id, name, lat, lon FROM ngos').fetchall()
+            conn.close()
+            return render_template('food_donor_registration.html', ngos=ngos, error_message='Registration failed.')
 
 @auth_bp.route('/food_donor_login', methods=['GET', 'POST'])
 def food_donor_login():
@@ -111,10 +147,13 @@ def food_donor_login():
                 return redirect(url_for('auth.food_donor_login'))
 
             session['user_id'] = user_record.get('id')
-            session['user_session_key'] = f"donor_{user_record.get('id')}_{user_record.get('email') or user_record.get('phone')}"
+            session['user_session_key'] = f"donor_{user_record.get('id')}_{user_record.get('phone')}"
             session['user_type'] = 'food_donor'
+            session['user_role'] = 'food_donor'
             session['user_name'] = user_record.get('organization_name')
-            session['user_contact'] = user_record.get('email') if user_record.get('email') else user_record.get('phone')
+            session['user_contact'] = user_record.get('phone')
+            session['user_lat'] = user_record.get('lat')
+            session['user_lon'] = user_record.get('lon')
             print('[DEBUG] Session after donor login:', dict(session))
             return redirect(url_for('dashboard.donor_dashboard'))
 

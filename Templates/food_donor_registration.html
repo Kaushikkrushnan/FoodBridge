@@ -6,6 +6,24 @@
     <title>Food Donor Registration</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <!-- Leaflet CSS for map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #location-map {
+            height: 300px;
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .location-marker {
+            background-color: #ef4444;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+    </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
     <div class="bg-white p-8 rounded shadow-md w-full max-w-md">
@@ -14,10 +32,6 @@
             <div class="mb-4">
                 <label for="name" class="block text-gray-700 mb-2">Organization Name</label>
                 <input type="text" name="name" id="name" required class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-500" />
-            </div>
-            <div class="mb-4">
-                <label for="email" class="block text-gray-700 mb-2">Email</label>
-                <input type="email" name="email" id="email" required class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-500" />
             </div>
             <div class="mb-4">
                 <label for="phone" class="block text-gray-700 mb-2">Phone Number</label>
@@ -36,6 +50,14 @@
                 <textarea name="address" id="address" required rows="3" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-500"></textarea>
             </div>
             <div class="mb-4">
+                <label class="block text-gray-700 mb-2">Your Location (Click on map to set)</label>
+                <div id="location-map"></div>
+                <input type="hidden" name="lat" id="lat" value="" />
+                <input type="hidden" name="lon" id="lon" value="" />
+                <p id="location-status" class="text-sm text-gray-500 mt-1">Click on the map to set your location, or use "Get Current Location" button.</p>
+                <button type="button" id="get-location-btn" class="mt-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition text-sm">Get Current Location</button>
+            </div>
+            <div class="mb-4">
                 <label for="selected_ngos" class="block text-gray-700 mb-2">Select NGO to Donate Food</label>
                 <select name="selected_ngos" id="selected_ngos" required class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-500">
                     {% for ngo in ngos %}
@@ -50,5 +72,77 @@
         </form>
         <div id="message" class="mt-4 text-center text-red-600"></div>
     </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map centered on Chennai (default location)
+        const map = L.map('location-map').setView([13.0827, 80.2707], 12);
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Custom marker icon
+        const locationIcon = L.divIcon({
+            className: 'location-marker',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+        
+        let marker = null;
+        
+        // Function to set location
+        function setLocation(lat, lon) {
+            document.getElementById('lat').value = lat;
+            document.getElementById('lon').value = lon;
+            document.getElementById('location-status').textContent = `Location set: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+            document.getElementById('location-status').classList.remove('text-gray-500');
+            document.getElementById('location-status').classList.add('text-green-600');
+            
+            // Update or create marker
+            if (marker) {
+                marker.setLatLng([lat, lon]);
+            } else {
+                marker = L.marker([lat, lon], {icon: locationIcon}).addTo(map);
+            }
+            map.setView([lat, lon], 15);
+        }
+        
+        // Click on map to set location
+        map.on('click', function(e) {
+            setLocation(e.latlng.lat, e.latlng.lng);
+        });
+        
+        // Get current location button
+        document.getElementById('get-location-btn').addEventListener('click', function() {
+            if (navigator.geolocation) {
+                document.getElementById('location-status').textContent = 'Getting your location...';
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        setLocation(position.coords.latitude, position.coords.longitude);
+                    },
+                    function(error) {
+                        document.getElementById('location-status').textContent = 'Error getting location: ' + error.message;
+                        document.getElementById('location-status').classList.add('text-red-500');
+                    }
+                );
+            } else {
+                document.getElementById('location-status').textContent = 'Geolocation is not supported by your browser.';
+                document.getElementById('location-status').classList.add('text-red-500');
+            }
+        });
+        
+        // Form validation
+        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+            const lat = document.getElementById('lat').value;
+            const lon = document.getElementById('lon').value;
+            if (!lat || !lon) {
+                e.preventDefault();
+                document.getElementById('message').textContent = 'Please set your location on the map before submitting.';
+            }
+        });
+    </script>
 </body>
 </html>

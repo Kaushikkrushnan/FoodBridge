@@ -110,6 +110,8 @@ def init_db():
             whatsapp_phone TEXT,
             vehicle_type TEXT,
             address TEXT,
+            lat REAL,
+            lon REAL,
             food_type TEXT,
             quantity TEXT,
             ready_for_pickup_time TEXT,
