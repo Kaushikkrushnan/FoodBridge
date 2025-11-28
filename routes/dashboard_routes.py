@@ -606,3 +606,234 @@ def volunteer_dashboard():
                          completed_deliveries=completed_deliveries_dict,
                          **user_info)
 
+
+@dashboard_bp.route('/mark_food_packed', methods=['POST'])
+def mark_food_packed():
+    """
+    Mark food as packed by the food donor.
+    This triggers the automatic volunteer collection step.
+    """
+    data = request.get_json()
+    assignment_id = data.get('assignment_id')
+    
+    if not assignment_id:
+        return jsonify({'success': False, 'error': 'Missing assignment_id'}), 400
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        # Mark food as packed
+        conn.execute('''
+            UPDATE ngo_assignments 
+            SET food_packed = 1, food_packed_time = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (assignment_id,))
+        conn.commit()
+        
+        # Auto-trigger volunteer collection (since volunteers are dummy for now)
+        # Wait 2 seconds simulation then mark as collected
+        import time
+        time.sleep(1)  # Small delay for realism
+        
+        # Assign a dummy volunteer and mark as collected
+        app_conn = get_db_connection()
+        volunteer = app_conn.execute('SELECT id, name FROM volunteers WHERE is_available = 1 LIMIT 1').fetchone()
+        app_conn.close()
+        
+        if volunteer:
+            conn.execute('''
+                UPDATE ngo_assignments 
+                SET volunteer_id = ?, volunteer_name = ?, 
+                    volunteer_allocated_time = CURRENT_TIMESTAMP,
+                    volunteer_collected = 1, volunteer_collected_time = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (volunteer['id'], volunteer['name'], assignment_id))
+            conn.commit()
+            
+            # Auto mark as reached NGO after another delay
+            time.sleep(1)
+            conn.execute('''
+                UPDATE ngo_assignments 
+                SET reached_ngo = 1, reached_ngo_time = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (assignment_id,))
+            conn.commit()
+        
+        conn.close()
+        return jsonify({'success': True, 'message': 'Food marked as packed and volunteer assigned'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/mark_donation_complete', methods=['POST'])
+def mark_donation_complete():
+    """
+    Mark donation as complete by the NGO.
+    """
+    data = request.get_json()
+    assignment_id = data.get('assignment_id')
+    
+    if not assignment_id:
+        return jsonify({'success': False, 'error': 'Missing assignment_id'}), 400
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        # Mark as completed
+        conn.execute('''
+            UPDATE ngo_assignments 
+            SET completed = 1, completed_time = CURRENT_TIMESTAMP, request_status = 'completed'
+            WHERE id = ?
+        ''', (assignment_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Donation marked as complete'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/get_assignment_progress/<int:assignment_id>')
+def get_assignment_progress(assignment_id):
+    """
+    Get the progress of a specific assignment for live tracking.
+    """
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        assignment = conn.execute('''
+            SELECT * FROM ngo_assignments WHERE id = ?
+        ''', (assignment_id,)).fetchone()
+        
+        conn.close()
+        
+        if not assignment:
+            return jsonify({'success': False, 'error': 'Assignment not found'}), 404
+        
+        assignment_dict = dict(assignment)
+        
+        # Calculate progress steps
+        steps = {
+            'food_packed': bool(assignment_dict.get('food_packed', 0)),
+            'food_packed_time': assignment_dict.get('food_packed_time'),
+            'volunteer_collected': bool(assignment_dict.get('volunteer_collected', 0)),
+            'volunteer_collected_time': assignment_dict.get('volunteer_collected_time'),
+            'reached_ngo': bool(assignment_dict.get('reached_ngo', 0)),
+            'reached_ngo_time': assignment_dict.get('reached_ngo_time'),
+            'completed': bool(assignment_dict.get('completed', 0)),
+            'completed_time': assignment_dict.get('completed_time'),
+            'volunteer_name': assignment_dict.get('volunteer_name'),
+            'request_status': assignment_dict.get('request_status')
+        }
+        
+        return jsonify({'success': True, 'progress': steps, 'assignment': assignment_dict})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/donor/my_assignments')
+def donor_my_assignments():
+    """
+    Get assignments for the current food donor with tracking progress.
+    """
+    donor_id = session.get('user_id')
+    donor_name = session.get('user_name')
+    
+    if not donor_id and not donor_name:
+        return jsonify({'success': False, 'error': 'Please login as a food donor first'}), 401
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        # Get all assignments for this donor
+        assignments = conn.execute('''
+            SELECT * FROM ngo_assignments 
+            WHERE food_donor_id = ? OR food_donor_name = ?
+            ORDER BY assigned_at DESC
+        ''', (donor_id, donor_name)).fetchall()
+        
+        conn.close()
+        
+        assignments_list = [dict(a) for a in assignments]
+        
+        return jsonify({'success': True, 'assignments': assignments_list})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/ngo/my_requests')
+def ngo_my_requests():
+    """
+    Get donation requests for the current NGO.
+    """
+    ngo_id = session.get('user_id')
+    ngo_name = session.get('user_name')
+    
+    if not ngo_id and not ngo_name:
+        return jsonify({'success': False, 'error': 'Please login as an NGO first'}), 401
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        # Get all assignments for this NGO
+        assignments = conn.execute('''
+            SELECT * FROM ngo_assignments 
+            WHERE ngo_id = ? OR ngo_name = ?
+            ORDER BY assigned_at DESC
+        ''', (ngo_id, ngo_name)).fetchall()
+        
+        conn.close()
+        
+        assignments_list = [dict(a) for a in assignments]
+        
+        return jsonify({'success': True, 'assignments': assignments_list})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/ngo/accept_donor_request', methods=['POST'])
+def ngo_accept_donor_request():
+    """
+    NGO accepts a food donor's request.
+    """
+    data = request.get_json()
+    assignment_id = data.get('assignment_id')
+    
+    if not assignment_id:
+        return jsonify({'success': False, 'error': 'Missing assignment_id'}), 400
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        # Update assignment status to accepted
+        conn.execute('''
+            UPDATE ngo_assignments 
+            SET request_status = 'accepted', acceptance_time = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (assignment_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Request accepted'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
