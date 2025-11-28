@@ -380,25 +380,80 @@ def donor_my_accepted_ngos():
 def progress():
     """
     Render progress tracking page with live map for food requests categorized by status.
+    Shows only the assignments related to the logged-in user (NGO, Food Donor, or Volunteer).
     """
 
     from database.assignment_db import get_assignment_db_connection
     conn = get_assignment_db_connection()
     app_conn = get_db_connection()
+    
+    # Get user info from session
+    user_name = session.get('user_name', '')
+    user_email = session.get('user_email', '')
+    user_role = session.get('user_role', '')
+    user_id = session.get('user_id', '')
+    
+    # Get user's assignments from ngo_assignments table based on user role
+    user_assignments = []
+    if user_name or user_email:
+        # Try to match by NGO name, food donor name, or volunteer name
+        user_assignments = conn.execute("""
+            SELECT a.*, 
+                   CASE 
+                       WHEN a.ngo_name = ? OR a.ngo_id = ? THEN 'ngo'
+                       WHEN a.food_donor_name = ? OR a.food_donor_id = ? THEN 'donor'
+                       WHEN a.volunteer_name = ? OR a.volunteer_id = ? THEN 'volunteer'
+                       ELSE 'unknown'
+                   END as user_match_type
+            FROM ngo_assignments a
+            WHERE a.ngo_name = ? OR a.ngo_id = ? OR a.food_donor_name = ? OR a.food_donor_id = ? OR a.volunteer_name = ? OR a.volunteer_id = ?
+            ORDER BY a.assigned_at DESC
+        """, (user_name, user_id, user_name, user_id, user_name, user_id, 
+              user_name, user_id, user_name, user_id, user_name, user_id)).fetchall()
+    
+    user_assignments_list = [dict(row) for row in user_assignments]
 
-    # Get food donor requests categorized by status
-    assigned_requests = conn.execute("""
-        SELECT * FROM food_donor_requests WHERE status = 'pending' AND ngo_acceptance_status = 'pending' ORDER BY id DESC
-    """).fetchall()
-    collected_requests = conn.execute("""
-        SELECT * FROM food_donor_requests WHERE status = 'accepted' AND ngo_acceptance_status = 'accepted' ORDER BY id DESC
-    """).fetchall()
-    in_transit_requests = conn.execute("""
-        SELECT * FROM food_donor_requests WHERE status = 'in_transit' ORDER BY id DESC
-    """).fetchall()
-    delivered_requests = conn.execute("""
-        SELECT * FROM food_donor_requests WHERE status = 'delivered' ORDER BY id DESC
-    """).fetchall()
+    # Get food donor requests categorized by status - filtered for user if logged in
+    if user_name or user_id:
+        # Filter requests based on user being either the NGO or the food donor
+        assigned_requests = conn.execute("""
+            SELECT * FROM food_donor_requests 
+            WHERE (status = 'pending' AND ngo_acceptance_status = 'pending')
+            AND (ngo_name = ? OR ngo_id = ? OR food_donor_name = ? OR food_donor_id = ?)
+            ORDER BY id DESC
+        """, (user_name, user_id, user_name, user_id)).fetchall()
+        collected_requests = conn.execute("""
+            SELECT * FROM food_donor_requests 
+            WHERE (status = 'accepted' AND ngo_acceptance_status = 'accepted')
+            AND (ngo_name = ? OR ngo_id = ? OR food_donor_name = ? OR food_donor_id = ?)
+            ORDER BY id DESC
+        """, (user_name, user_id, user_name, user_id)).fetchall()
+        in_transit_requests = conn.execute("""
+            SELECT * FROM food_donor_requests 
+            WHERE status = 'in_transit'
+            AND (ngo_name = ? OR ngo_id = ? OR food_donor_name = ? OR food_donor_id = ?)
+            ORDER BY id DESC
+        """, (user_name, user_id, user_name, user_id)).fetchall()
+        delivered_requests = conn.execute("""
+            SELECT * FROM food_donor_requests 
+            WHERE status = 'delivered'
+            AND (ngo_name = ? OR ngo_id = ? OR food_donor_name = ? OR food_donor_id = ?)
+            ORDER BY id DESC
+        """, (user_name, user_id, user_name, user_id)).fetchall()
+    else:
+        # No user logged in - show all requests
+        assigned_requests = conn.execute("""
+            SELECT * FROM food_donor_requests WHERE status = 'pending' AND ngo_acceptance_status = 'pending' ORDER BY id DESC
+        """).fetchall()
+        collected_requests = conn.execute("""
+            SELECT * FROM food_donor_requests WHERE status = 'accepted' AND ngo_acceptance_status = 'accepted' ORDER BY id DESC
+        """).fetchall()
+        in_transit_requests = conn.execute("""
+            SELECT * FROM food_donor_requests WHERE status = 'in_transit' ORDER BY id DESC
+        """).fetchall()
+        delivered_requests = conn.execute("""
+            SELECT * FROM food_donor_requests WHERE status = 'delivered' ORDER BY id DESC
+        """).fetchall()
 
     # Get unique NGOs involved in these requests from app.db
     ngo_ids = list(set(req['ngo_id'] for req in assigned_requests + collected_requests + in_transit_requests + delivered_requests if req['ngo_id']))
@@ -412,19 +467,14 @@ def progress():
             ORDER BY name
         ''', ngo_ids).fetchall()
 
-    # Get all volunteers from app.db
-    volunteers = app_conn.execute('''
-        SELECT * FROM volunteers ORDER BY name
-    ''').fetchall()
-
-    # Get all food donors (from food_donor_requests table in assignment.db)
-    donors = conn.execute('''
-        SELECT DISTINCT food_donor_name, COUNT(*) as total_donations,
-               COUNT(CASE WHEN status IN ('pending', 'accepted', 'in_transit', 'delivered') THEN 1 END) as active_donations
-        FROM food_donor_requests
-        GROUP BY food_donor_name
-        ORDER BY food_donor_name
-    ''').fetchall()
+    # Get volunteers from user's assignments
+    volunteer_ids = list(set(a['volunteer_id'] for a in user_assignments_list if a.get('volunteer_id')))
+    volunteers = []
+    if volunteer_ids:
+        placeholders = ','.join('?' * len(volunteer_ids))
+        volunteers = app_conn.execute(f'''
+            SELECT * FROM volunteers WHERE id IN ({placeholders}) ORDER BY name
+        ''', volunteer_ids).fetchall()
 
     # Get complaints/issues (placeholder - can be expanded)
     complaints = [{'message': 'No complaints reported', 'count': 0}]
@@ -458,18 +508,8 @@ def progress():
     # Convert NGO rows to dicts
     ngos_list = [dict(ngo) for ngo in ngos]
     volunteers_list = [dict(vol) for vol in volunteers]
-    donors_list = [dict(don) for don in donors]
     complaints_list = [dict(comp) for comp in complaints]
 
-    # Fetch assignment data for the logged-in user from assignment.db
-    user_email = session.get('user_email')
-    user_assignments = []
-    if user_email:
-        try:
-            from database.get_user_assignments import get_user_assignments
-            user_assignments = get_user_assignments(user_email)
-        except Exception as e:
-            user_assignments = []
     return render_template('progress.html', 
                            assigned_requests=assigned_requests_list,
                            collected_requests=collected_requests_list,
@@ -477,10 +517,11 @@ def progress():
                            delivered_requests=delivered_requests_list,
                            ngos=ngos_list,
                            volunteers=volunteers_list,
-                           donors=donors_list,
                            complaints=complaints_list,
                            user_contact=session.get('user_contact'),
-                           user_assignments=user_assignments)
+                           user_assignments=user_assignments_list,
+                           user_name=user_name,
+                           user_role=user_role)
 
 
 @dashboard_bp.route('/volunteer_dashboard')

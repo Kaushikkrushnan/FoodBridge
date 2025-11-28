@@ -6,6 +6,9 @@
         <div class="text-center mb-8">
             <h1 class="text-4xl font-bold text-gray-800 mb-2">Live Progress Tracking</h1>
             <p class="text-lg text-gray-600">Real-time tracking of food donations and volunteer movements</p>
+            {% if user_name %}
+            <p class="text-md text-blue-600 mt-2">Showing tracking for: <strong>{{ user_name }}</strong> ({{ user_role or 'User' }})</p>
+            {% endif %}
         </div>
         <!-- Navigation -->
         <div class="flex justify-center mb-8">
@@ -13,6 +16,36 @@
             <a href="{{ url_for('dashboard.donor_dashboard') }}" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition duration-300 mr-4">Food Donor Dashboard</a>
             <a href="{{ url_for('dashboard.ngo_dashboard') }}" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300">NGO Dashboard</a>
         </div>
+        
+        <!-- My Assignments Section -->
+        {% if user_assignments %}
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8 border-l-4 border-blue-500">
+            <h2 class="text-2xl font-semibold mb-4 text-blue-800">📋 My Assignments</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for assignment in user_assignments %}
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="font-semibold text-gray-800">Assignment #{{ assignment.id }}</h4>
+                        <span class="px-2 py-1 rounded text-xs 
+                            {% if assignment.request_status == 'accepted' %}bg-green-100 text-green-800
+                            {% elif assignment.request_status == 'requested' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ assignment.request_status.title() if assignment.request_status else 'Pending' }}
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-1"><strong>Food Donor:</strong> {{ assignment.food_donor_name or 'N/A' }}</p>
+                    <p class="text-sm text-gray-600 mb-1"><strong>NGO:</strong> {{ assignment.ngo_name or 'N/A' }}</p>
+                    <p class="text-sm text-gray-600 mb-1"><strong>Volunteer:</strong> {{ assignment.volunteer_name or 'Not assigned yet' }}</p>
+                    <p class="text-sm text-gray-500 mt-2">Assigned: {{ assignment.assigned_at or 'N/A' }}</p>
+                    {% if assignment.acceptance_time %}
+                    <p class="text-sm text-green-600">Accepted: {{ assignment.acceptance_time }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
         <!-- Top Section: Volunteer Transport Details -->
         <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
             <h2 class="text-2xl font-semibold mb-4">Transport Volunteers</h2>
@@ -110,8 +143,8 @@
             </section>
         </div>
 
-        <!-- NGO Details and Volunteers Summary -->
-        <div class="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-8">
+        <!-- NGO Details and Assigned Volunteers -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <!-- NGO Details Box -->
             <div class="bg-white rounded-lg shadow-lg p-6">
                 <h3 class="text-xl font-semibold mb-4 text-gray-800">NGO Details</h3>
@@ -125,6 +158,24 @@
                         {% endfor %}
                     {% else %}
                         <p class="text-sm text-gray-500">No NGOs currently receiving donations.</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Assigned Volunteers Box -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">Assigned Volunteers</h3>
+                <div class="space-y-3">
+                    {% if volunteers %}
+                        {% for vol in volunteers %}
+                        <div class="border-b border-gray-200 pb-3 last:border-b-0">
+                            <h4 class="font-medium text-gray-800">{{ vol.name }}</h4>
+                            <p class="text-sm text-gray-600"><strong>Contact:</strong> {{ vol.contact or 'N/A' }}</p>
+                            <p class="text-sm text-gray-600"><strong>Available:</strong> {{ vol.available_from or '08:00' }} - {{ vol.available_to or '20:00' }}</p>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-sm text-gray-500">No volunteers assigned to your requests.</p>
                     {% endif %}
                 </div>
             </div>
