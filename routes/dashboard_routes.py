@@ -5,8 +5,12 @@ import math
 from flask import Blueprint, render_template, session, request, jsonify
 from db import get_db_connection, get_auth_db_connection
 from database.session_manager import get_user_from_session, update_session_activity
+from services.sms_service import get_sms_service
 
 dashboard_bp = Blueprint('dashboard', __name__)
+
+# Get SMS service for notifications
+sms_service = get_sms_service()
 
 
 # Helper function to calculate distance between two coordinates (Haversine formula)
@@ -110,12 +114,39 @@ def accept_ngo():
         conn.commit()
         conn.close()
         print(f'[DEBUG] Assignment created: donor_id={donor_id}, ngo_id={ngo_id}, assignment_id={assignment_id}')
+        
+        # Send SMS notifications
+        # Get donor and NGO phone numbers
+        app_conn = get_db_connection()
+        donor_record = app_conn.execute(
+            'SELECT phone FROM food_donors WHERE id = ?', (donor_id,)
+        ).fetchone()
+        donor_phone = donor_record['phone'] if donor_record else None
+        
+        auth_conn = get_auth_db_connection()
+        ngo_record = auth_conn.execute(
+            'SELECT phone FROM users WHERE id = ?', (ngo_id,)
+        ).fetchone()
+        ngo_phone = ngo_record['phone'] if ngo_record else None
+        auth_conn.close()
+        app_conn.close()
+        
+        # Send SMS to donor
+        if donor_phone:
+            sms_service.notify_food_request_sent(donor_phone, donor_name, ngo_name)
+        
+        # Send SMS to NGO about new request
+        if ngo_phone:
+            sms_service.notify_ngo_new_request(ngo_phone, ngo_name, donor_name, 'Food Donation')
+        
         return jsonify({'success': True, 'assignment_id': assignment_id})
     except Exception as e:
         import traceback
         print('[ERROR] Exception in /accept_ngo:')
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @dashboard_bp.route('/ngo_accept_donation', methods=['POST'])
 def ngo_accept_donation():
     data = request.get_json()
@@ -131,6 +162,12 @@ def ngo_accept_donation():
         
         # Update the food_donors table to mark this donation as accepted
         conn = get_db_connection()
+        
+        # First get the donor info for SMS notification
+        donor_record = conn.execute('''
+            SELECT organization_name, phone FROM food_donors WHERE id = ?
+        ''', (request_id,)).fetchone()
+        
         conn.execute('''
             UPDATE food_donors 
             SET status = 'accepted', selected_ngo_id = ?
@@ -138,6 +175,14 @@ def ngo_accept_donation():
         ''', (ngo_id, request_id))
         conn.commit()
         conn.close()
+        
+        # Send SMS notification to donor
+        if donor_record and donor_record['phone']:
+            sms_service.notify_ngo_accepted(
+                donor_record['phone'], 
+                donor_record['organization_name'], 
+                ngo_name or 'NGO'
+            )
         
         return jsonify({'success': True})
     except Exception as e:
@@ -715,6 +760,11 @@ def mark_food_packed():
         from database.assignment_db import get_assignment_db_connection
         conn = get_assignment_db_connection()
         
+        # Get assignment details for SMS notifications
+        assignment = conn.execute('''
+            SELECT food_donor_id, food_donor_name, ngo_id, ngo_name FROM ngo_assignments WHERE id = ?
+        ''', (assignment_id,)).fetchone()
+        
         # Mark food as packed
         conn.execute('''
             UPDATE ngo_assignments 
@@ -728,10 +778,30 @@ def mark_food_packed():
         
         # Assign a dummy volunteer and mark as collected
         app_conn = get_db_connection()
-        volunteer = app_conn.execute('SELECT id, name FROM volunteers WHERE is_available = 1 LIMIT 1').fetchone()
+        volunteer = app_conn.execute('SELECT id, name, contact FROM volunteers WHERE is_available = 1 LIMIT 1').fetchone()
+        
+        # Get phone numbers for SMS
+        donor_phone = None
+        ngo_phone = None
+        
+        if assignment:
+            donor_record = app_conn.execute(
+                'SELECT phone FROM food_donors WHERE id = ?', (assignment['food_donor_id'],)
+            ).fetchone()
+            donor_phone = donor_record['phone'] if donor_record else None
+            
+            auth_conn = get_auth_db_connection()
+            ngo_record = auth_conn.execute(
+                'SELECT phone FROM users WHERE id = ?', (assignment['ngo_id'],)
+            ).fetchone()
+            ngo_phone = ngo_record['phone'] if ngo_record else None
+            auth_conn.close()
+        
         app_conn.close()
         
+        volunteer_name = 'Volunteer'
         if volunteer:
+            volunteer_name = volunteer['name']
             # Auto-assign volunteer, mark as collected and reached NGO
             conn.execute('''
                 UPDATE ngo_assignments 
@@ -744,6 +814,17 @@ def mark_food_packed():
             conn.commit()
         
         conn.close()
+        
+        # Send SMS notifications
+        if donor_phone or ngo_phone:
+            # Notify about volunteer assignment
+            sms_service.notify_volunteer_assigned(donor_phone, ngo_phone, volunteer_name)
+            # Notify about food collection
+            sms_service.notify_food_collected(donor_phone, ngo_phone, volunteer_name)
+            # Notify that food reached NGO
+            if assignment:
+                sms_service.notify_reached_ngo(donor_phone, ngo_phone, assignment['ngo_name'])
+        
         return jsonify({'success': True, 'message': 'Food marked as packed and volunteer assigned'})
     except Exception as e:
         import traceback
@@ -766,6 +847,11 @@ def mark_donation_complete():
         from database.assignment_db import get_assignment_db_connection
         conn = get_assignment_db_connection()
         
+        # Get assignment details for SMS notification
+        assignment = conn.execute('''
+            SELECT food_donor_id, food_donor_name, ngo_id, ngo_name FROM ngo_assignments WHERE id = ?
+        ''', (assignment_id,)).fetchone()
+        
         # Mark as completed
         conn.execute('''
             UPDATE ngo_assignments 
@@ -774,6 +860,21 @@ def mark_donation_complete():
         ''', (assignment_id,))
         conn.commit()
         conn.close()
+        
+        # Send SMS notification to donor about completion
+        if assignment:
+            app_conn = get_db_connection()
+            donor_record = app_conn.execute(
+                'SELECT phone FROM food_donors WHERE id = ?', (assignment['food_donor_id'],)
+            ).fetchone()
+            app_conn.close()
+            
+            if donor_record and donor_record['phone']:
+                sms_service.notify_donation_complete(
+                    donor_record['phone'], 
+                    assignment['food_donor_name'], 
+                    assignment['ngo_name']
+                )
         
         return jsonify({'success': True, 'message': 'Donation marked as complete'})
     except Exception as e:
