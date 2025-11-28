@@ -3,12 +3,13 @@
 {% block content %}
     <div class="container mx-auto py-8">
         <h1 class="text-4xl font-bold mb-8 text-center">NGO Dashboard</h1>
+        <p class="text-center text-gray-600 mb-6">🔥 Donations sorted by pickup time (soonest first for highest priority)</p>
         <div class="mb-12">
             <h2 class="text-3xl font-bold text-gray-800 mb-6">Available Food Donations</h2>
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="available-donations-grid">
                 {% if available_donations %}
                     {% for donation in available_donations %}
-                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
+                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200 {% if loop.index <= 3 %}border-l-4 border-l-orange-500{% endif %}"
                          data-id="{{ donation.id }}"
                          data-donor-name="{{ donation.food_donor_name or donation.donor_name or '' }}"
                          data-food-type="{{ donation.food_type or '' }}"
@@ -18,6 +19,9 @@
                          data-cuisine="{{ donation.cuisine_type or '' }}"
                          data-spice="{{ donation.spice_level or '' }}"
                          data-spec="{{ donation.food_category or '' }}">
+                        {% if loop.index <= 3 %}
+                        <span class="inline-block bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded mb-2">🔥 HIGH PRIORITY #{{ loop.index }}</span>
+                        {% endif %}
                         <h3 class="text-2xl font-semibold mb-2">{{ donation.food_donor_name or donation.donor_name or 'Anonymous' }}</h3>
                         <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
                         <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
