@@ -1,11 +1,43 @@
 """
 Dashboard routes for Donor and NGO dashboards
 """
+import math
 from flask import Blueprint, render_template, session, request, jsonify
 from db import get_db_connection, get_auth_db_connection
 from database.session_manager import get_user_from_session, update_session_activity
 
 dashboard_bp = Blueprint('dashboard', __name__)
+
+
+# Helper function to calculate distance between two coordinates (Haversine formula)
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """Calculate distance between two coordinates in km"""
+    if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+        return float('inf')
+    R = 6371  # Earth's radius in km
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lon = math.radians(lon2 - lon1)
+    a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
+
+
+# Helper function to calculate approximate time (assuming 30 km/h average speed in city)
+def calculate_time(distance_km):
+    """Calculate approximate delivery time based on distance"""
+    if distance_km == float('inf'):
+        return 'N/A'
+    avg_speed = 30  # km/h
+    time_minutes = int((distance_km / avg_speed) * 60)
+    if time_minutes < 60:
+        return f'{time_minutes} min'
+    else:
+        hours = time_minutes // 60
+        mins = time_minutes % 60
+        return f'{hours}h {mins}m'
+
 
 @dashboard_bp.route('/accept_ngo', methods=['POST'])
 def accept_ngo():
@@ -203,34 +235,6 @@ def donor_dashboard():
     
     assign_conn.close()
     
-    # Helper function to calculate distance between two coordinates
-    import math
-    def calculate_distance(lat1, lon1, lat2, lon2):
-        if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
-            return float('inf')  # Return infinity if coordinates are missing
-        R = 6371  # Earth's radius in km
-        lat1_rad = math.radians(lat1)
-        lat2_rad = math.radians(lat2)
-        delta_lat = math.radians(lat2 - lat1)
-        delta_lon = math.radians(lon2 - lon1)
-        a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-        return R * c
-    
-    # Helper function to calculate approximate time (assuming 30 km/h average speed in city)
-    def calculate_time(distance_km):
-        if distance_km == float('inf'):
-            return 'N/A'
-        avg_speed = 30  # km/h
-        time_hours = distance_km / avg_speed
-        time_minutes = int(time_hours * 60)
-        if time_minutes < 60:
-            return f'{time_minutes} min'
-        else:
-            hours = time_minutes // 60
-            mins = time_minutes % 60
-            return f'{hours}h {mins}m'
-    
     # Categorize NGOs with distance info
     available_ngos = []
     requested_ngos = []
@@ -273,34 +277,6 @@ def ngo_dashboard():
     Render NGO dashboard showing Available and Accepted Food Donations from food_donors table.
     Sorted by distance (nearest first) and pickup time.
     """
-    import math
-    
-    # Helper function to calculate distance between two coordinates
-    def calculate_distance(lat1, lon1, lat2, lon2):
-        if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
-            return float('inf')
-        R = 6371  # Earth's radius in km
-        lat1_rad = math.radians(lat1)
-        lat2_rad = math.radians(lat2)
-        delta_lat = math.radians(lat2 - lat1)
-        delta_lon = math.radians(lon2 - lon1)
-        a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-        return R * c
-    
-    # Helper function to calculate approximate time
-    def calculate_time(distance_km):
-        if distance_km == float('inf'):
-            return 'N/A'
-        avg_speed = 30  # km/h
-        time_minutes = int((distance_km / avg_speed) * 60)
-        if time_minutes < 60:
-            return f'{time_minutes} min'
-        else:
-            hours = time_minutes // 60
-            mins = time_minutes % 60
-            return f'{hours}h {mins}m'
-    
     # Get user info from database session if available
     db_session_id = session.get('db_session_id')
     if db_session_id:
