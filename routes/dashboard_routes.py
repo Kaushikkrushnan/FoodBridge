@@ -632,9 +632,7 @@ def mark_food_packed():
         conn.commit()
         
         # Auto-trigger volunteer collection (since volunteers are dummy for now)
-        # Wait 2 seconds simulation then mark as collected
-        import time
-        time.sleep(1)  # Small delay for realism
+        # No delay needed - simulate instant assignment for demo purposes
         
         # Assign a dummy volunteer and mark as collected
         app_conn = get_db_connection()
@@ -642,22 +640,15 @@ def mark_food_packed():
         app_conn.close()
         
         if volunteer:
+            # Auto-assign volunteer, mark as collected and reached NGO
             conn.execute('''
                 UPDATE ngo_assignments 
                 SET volunteer_id = ?, volunteer_name = ?, 
                     volunteer_allocated_time = CURRENT_TIMESTAMP,
-                    volunteer_collected = 1, volunteer_collected_time = CURRENT_TIMESTAMP
+                    volunteer_collected = 1, volunteer_collected_time = CURRENT_TIMESTAMP,
+                    reached_ngo = 1, reached_ngo_time = CURRENT_TIMESTAMP
                 WHERE id = ?
             ''', (volunteer['id'], volunteer['name'], assignment_id))
-            conn.commit()
-            
-            # Auto mark as reached NGO after another delay
-            time.sleep(1)
-            conn.execute('''
-                UPDATE ngo_assignments 
-                SET reached_ngo = 1, reached_ngo_time = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ''', (assignment_id,))
             conn.commit()
         
         conn.close()
