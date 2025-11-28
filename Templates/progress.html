@@ -111,7 +111,7 @@
         </div>
 
         <!-- NGO Details and Volunteers Summary -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-8">
             <!-- NGO Details Box -->
             <div class="bg-white rounded-lg shadow-lg p-6">
                 <h3 class="text-xl font-semibold mb-4 text-gray-800">NGO Details</h3>
@@ -125,24 +125,6 @@
                         {% endfor %}
                     {% else %}
                         <p class="text-sm text-gray-500">No NGOs currently receiving donations.</p>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- Volunteers Summary -->
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <h3 class="text-xl font-semibold mb-4 text-gray-800">Available Volunteers</h3>
-                <div class="space-y-3">
-                    {% if volunteers %}
-                        {% for vol in volunteers %}
-                        <div class="border-b border-gray-200 pb-3 last:border-b-0">
-                            <h4 class="font-medium text-gray-800">{{ vol.name }}</h4>
-                            <p class="text-sm text-gray-600"><strong>Contact:</strong> {{ vol.contact or 'N/A' }}</p>
-                            <p class="text-sm text-gray-600"><strong>Available:</strong> {{ vol.available_from or '08:00' }} - {{ vol.available_to or '20:00' }}</p>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-sm text-gray-500">No volunteers currently available.</p>
                     {% endif %}
                 </div>
             </div>

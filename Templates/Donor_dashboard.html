@@ -91,40 +91,6 @@
             </div>
         </div>
         
-        <!-- My Food Donations Section -->
-        <div class="mb-12">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">My Food Donations</h2>
-            <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="my-donations-grid">
-                {% if donor_food_donations %}
-                    {% for donation in donor_food_donations %}
-                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200">
-                        <h3 class="text-2xl font-semibold mb-2">{{ donation.organization_name or 'My Donation' }}</h3>
-                        <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
-                        <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
-                        <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
-                        <p><strong>Pickup Time:</strong> {{ donation.ready_for_pickup_time or 'N/A' }}</p>
-                        <p><strong>Category:</strong> {{ donation.category or 'N/A' }}</p>
-                        <p><strong>Cuisine:</strong> {{ donation.cuisine_type or 'N/A' }}</p>
-                        <p><strong>Spice Level:</strong> {{ donation.spice_level or 'N/A' }}</p>
-                        <p class="text-sm text-gray-500 mt-2">Created: {{ donation.created_at or 'N/A' }}</p>
-                        {% if donation.status == 'accepted' %}
-                        <span class="status-badge status-active mt-2 inline-block">Accepted by NGO</span>
-                        {% elif donation.status == 'pending' %}
-                        <span class="status-badge status-occupied mt-2 inline-block">Pending</span>
-                        {% else %}
-                        <span class="status-badge status-vacant mt-2 inline-block">Available</span>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="col-span-full text-center py-12">
-                        <p class="text-gray-500 text-lg">You haven't submitted any food donations yet.</p>
-                        <a href="{{ url_for('food_donor') }}" class="btn bg-sky-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-sky-700 transition duration-300 mt-4 inline-block">Donate Food Now</a>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-        
         <!-- "No results" message (hidden by default) -->
         <div id="no-ngos" class="card bg-white p-6 rounded-lg shadow-md text-center text-gray-500" style="display: none;">
             <p>No verified NGOs available at the moment.</p>

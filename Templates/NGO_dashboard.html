@@ -2,7 +2,12 @@
 {% block title %}NGO Dashboard{% endblock %}
 {% block content %}
     <div class="container mx-auto py-8">
-        <h1 class="text-4xl font-bold mb-8 text-center">NGO Dashboard</h1>
+        <h1 class="text-4xl font-bold mb-4 text-center">NGO Dashboard</h1>
+        <!-- Navigation -->
+        <nav class="flex justify-center gap-4 mb-6">
+            <a href="{{ url_for('index') }}" class="btn bg-sky-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-sky-700 transition duration-300">Home</a>
+            <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">Live Tracking</a>
+        </nav>
         <p class="text-center text-gray-600 mb-6">🔥 Donations sorted by pickup time (soonest first for highest priority)</p>
         <div class="mb-12">
             <h2 class="text-3xl font-bold text-gray-800 mb-6">Available Food Donations</h2>
