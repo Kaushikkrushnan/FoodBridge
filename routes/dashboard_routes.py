@@ -15,7 +15,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     Returns distance in kilometers.
     """
     if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
-        return float('inf')  # Return infinity if coordinates are missing
+        return 999999.0  # Return large but finite value if coordinates are missing
     
     R = 6371  # Earth's radius in kilometers
     

@@ -17,6 +17,13 @@ TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', '')
 TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', '')
 TWILIO_PHONE_NUMBER = os.environ.get('TWILIO_PHONE_NUMBER', '')
 
+# Default country code (configurable via environment variable)
+DEFAULT_COUNTRY_CODE = os.environ.get('DEFAULT_COUNTRY_CODE', '+91')
+
+# Application URLs (configurable for different environments)
+TRACKING_URL = os.environ.get('FOODBRIDGE_TRACKING_URL', 'https://foodbridge.app/track')
+APP_URL = os.environ.get('FOODBRIDGE_APP_URL', 'https://foodbridge.app')
+
 # SMS Templates
 SMS_TEMPLATES = {
     'request_sent': "FoodBridge: {donor_name} has requested food pickup from {ngo_name}. Track at: {tracking_link}",
@@ -47,8 +54,8 @@ def send_sms(phone_number, message):
     # Normalize phone number
     phone_number = str(phone_number).strip()
     if not phone_number.startswith('+'):
-        # Assume Indian number if no country code
-        phone_number = '+91' + phone_number.lstrip('0')
+        # Use configurable default country code
+        phone_number = DEFAULT_COUNTRY_CODE + phone_number.lstrip('0')
     
     # Log the SMS for debugging/testing
     logger.info(f"[SMS] To: {phone_number}")
@@ -105,11 +112,11 @@ def send_notification(event_type, phone_number, **kwargs):
         logger.error(f"[SMS] Unknown event type: {event_type}")
         return {'success': False, 'error': f'Unknown event type: {event_type}'}
     
-    # Add default tracking link if not provided
+    # Add configurable tracking and app links if not provided
     if 'tracking_link' not in kwargs:
-        kwargs['tracking_link'] = 'https://foodbridge.app/track'
+        kwargs['tracking_link'] = TRACKING_URL
     if 'app_link' not in kwargs:
-        kwargs['app_link'] = 'https://foodbridge.app'
+        kwargs['app_link'] = APP_URL
     
     try:
         message = template.format(**kwargs)
