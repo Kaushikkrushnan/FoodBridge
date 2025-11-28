@@ -129,11 +129,10 @@ def donor_dashboard():
     auth_conn = get_auth_db_connection()
     app_conn = get_db_connection()
 
-    # Get all verified NGOs from auth.db
+    # Get all registered NGOs from auth.db (show all, not just verified)
     all_ngos = auth_conn.execute('''
         SELECT id, name, email, registration_number, verified
         FROM users
-        WHERE verified = 1
         ORDER BY name
     ''').fetchall()
 
@@ -174,19 +173,6 @@ def donor_dashboard():
         else:
             available_ngos.append(ngo_dict)
 
-    # Fetch food donations submitted by current donor from food_donors table
-    if current_donor_name:
-        donor_food_donations = app_conn.execute('''
-            SELECT id, organization_name, food_type, quantity, ready_for_pickup_time, pickup_location,
-                   category, cuisine_type, spice_level, created_at, status, selected_ngo_id
-            FROM food_donors
-            WHERE organization_name = ?
-            ORDER BY created_at DESC
-        ''', (current_donor_name,)).fetchall()
-        donor_food_donations = [dict(row) for row in donor_food_donations]
-    else:
-        donor_food_donations = []
-
     auth_conn.close()
     app_conn.close()
 
@@ -194,7 +180,6 @@ def donor_dashboard():
                          available_ngos=available_ngos, 
                          requested_ngos=requested_ngos, 
                          accepted_ngos=accepted_ngos,
-                         donor_food_donations=donor_food_donations,
                          **user_info)
 
 
