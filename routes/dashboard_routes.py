@@ -161,10 +161,21 @@ def donor_dashboard():
     
     auth_conn = get_auth_db_connection()
     app_conn = get_db_connection()
+    
+    # Get donor's location for distance calculation
+    donor_lat = None
+    donor_lon = None
+    if current_donor_id:
+        donor_record = app_conn.execute('''
+            SELECT pickup_lat, pickup_lon FROM food_donors WHERE id = ?
+        ''', (current_donor_id,)).fetchone()
+        if donor_record:
+            donor_lat = donor_record['pickup_lat']
+            donor_lon = donor_record['pickup_lon']
 
-    # Get all registered NGOs from auth.db (show all, not just verified)
+    # Get all registered NGOs from auth.db with location info
     all_ngos = auth_conn.execute('''
-        SELECT id, name, email, registration_number, verified
+        SELECT id, name, email, registration_number, verified, location, city, latitude, longitude
         FROM users
         ORDER BY name
     ''').fetchall()
@@ -192,19 +203,59 @@ def donor_dashboard():
     
     assign_conn.close()
     
-    # Categorize NGOs
+    # Helper function to calculate distance between two coordinates
+    import math
+    def calculate_distance(lat1, lon1, lat2, lon2):
+        if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+            return float('inf')  # Return infinity if coordinates are missing
+        R = 6371  # Earth's radius in km
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lat = math.radians(lat2 - lat1)
+        delta_lon = math.radians(lon2 - lon1)
+        a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        return R * c
+    
+    # Helper function to calculate approximate time (assuming 30 km/h average speed in city)
+    def calculate_time(distance_km):
+        if distance_km == float('inf'):
+            return 'N/A'
+        avg_speed = 30  # km/h
+        time_hours = distance_km / avg_speed
+        time_minutes = int(time_hours * 60)
+        if time_minutes < 60:
+            return f'{time_minutes} min'
+        else:
+            hours = time_minutes // 60
+            mins = time_minutes % 60
+            return f'{hours}h {mins}m'
+    
+    # Categorize NGOs with distance info
     available_ngos = []
     requested_ngos = []
     accepted_ngos = []
     
     for ngo in all_ngos:
         ngo_dict = dict(ngo)
+        # Calculate distance from donor to NGO
+        ngo_lat = ngo_dict.get('latitude')
+        ngo_lon = ngo_dict.get('longitude')
+        distance = calculate_distance(donor_lat, donor_lon, ngo_lat, ngo_lon)
+        ngo_dict['distance_km'] = round(distance, 1) if distance != float('inf') else None
+        ngo_dict['approx_time'] = calculate_time(distance)
+        
         if ngo_dict['id'] in accepted_ngo_ids:
             accepted_ngos.append(ngo_dict)
         elif ngo_dict['id'] in requested_ngo_ids:
             requested_ngos.append(ngo_dict)
         else:
             available_ngos.append(ngo_dict)
+    
+    # Sort by distance (nearest first)
+    available_ngos.sort(key=lambda x: x['distance_km'] if x['distance_km'] is not None else float('inf'))
+    requested_ngos.sort(key=lambda x: x['distance_km'] if x['distance_km'] is not None else float('inf'))
+    accepted_ngos.sort(key=lambda x: x['distance_km'] if x['distance_km'] is not None else float('inf'))
 
     auth_conn.close()
     app_conn.close()
@@ -220,7 +271,36 @@ def donor_dashboard():
 def ngo_dashboard():
     """
     Render NGO dashboard showing Available and Accepted Food Donations from food_donors table.
+    Sorted by distance (nearest first) and pickup time.
     """
+    import math
+    
+    # Helper function to calculate distance between two coordinates
+    def calculate_distance(lat1, lon1, lat2, lon2):
+        if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+            return float('inf')
+        R = 6371  # Earth's radius in km
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lat = math.radians(lat2 - lat1)
+        delta_lon = math.radians(lon2 - lon1)
+        a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        return R * c
+    
+    # Helper function to calculate approximate time
+    def calculate_time(distance_km):
+        if distance_km == float('inf'):
+            return 'N/A'
+        avg_speed = 30  # km/h
+        time_minutes = int((distance_km / avg_speed) * 60)
+        if time_minutes < 60:
+            return f'{time_minutes} min'
+        else:
+            hours = time_minutes // 60
+            mins = time_minutes % 60
+            return f'{hours}h {mins}m'
+    
     # Get user info from database session if available
     db_session_id = session.get('db_session_id')
     if db_session_id:
@@ -229,7 +309,6 @@ def ngo_dashboard():
             update_session_activity(db_session_id)
             user_info = db_user
         else:
-            # Fallback to Flask session
             user_info = {
                 'user_name': session.get('user_name', ''),
                 'user_email': session.get('user_email', ''),
@@ -238,7 +317,6 @@ def ngo_dashboard():
                 'user_verified': session.get('user_verified', False)
             }
     else:
-        # Fallback to Flask session
         user_info = {
             'user_name': session.get('user_name', ''),
             'user_email': session.get('user_email', ''),
@@ -250,11 +328,22 @@ def ngo_dashboard():
     from database.assignment_db import get_assignment_db_connection
     conn = get_assignment_db_connection()
     app_conn = get_db_connection()
+    auth_conn = get_auth_db_connection()
 
-    ngo_id = user_info.get('user_id')
+    ngo_id = user_info.get('user_id') or session.get('user_id')
+    
+    # Get NGO's location for distance calculation
+    ngo_lat = None
+    ngo_lon = None
+    if ngo_id:
+        ngo_record = auth_conn.execute('''
+            SELECT latitude, longitude FROM users WHERE id = ?
+        ''', (ngo_id,)).fetchone()
+        if ngo_record:
+            ngo_lat = ngo_record['latitude']
+            ngo_lon = ngo_record['longitude']
     
     # Get available donations - fetch from food_donors table with food details
-    # Sort by pickup_time (soonest first for higher priority) and then by created_at
     available_donations = app_conn.execute('''
         SELECT fd.id, fd.organization_name as food_donor_name, fd.food_type, fd.quantity,
                fd.ready_for_pickup_time as pickup_time, fd.pickup_location,
@@ -265,7 +354,23 @@ def ngo_dashboard():
         WHERE fd.status = 'available' OR fd.status = 'pending'
         ORDER BY fd.ready_for_pickup_time ASC, fd.created_at DESC
     ''').fetchall()
-    available_donations_dict = [dict(row) for row in available_donations]
+    
+    # Add distance and time info to each donation
+    available_donations_dict = []
+    for row in available_donations:
+        donation = dict(row)
+        donor_lat = donation.get('pickup_lat')
+        donor_lon = donation.get('pickup_lon')
+        distance = calculate_distance(ngo_lat, ngo_lon, donor_lat, donor_lon)
+        donation['distance_km'] = round(distance, 1) if distance != float('inf') else None
+        donation['approx_time'] = calculate_time(distance)
+        available_donations_dict.append(donation)
+    
+    # Sort by distance first, then by pickup time
+    available_donations_dict.sort(key=lambda x: (
+        x['distance_km'] if x['distance_km'] is not None else float('inf'),
+        x.get('pickup_time') or ''
+    ))
 
     # Get accepted donations for this NGO
     accepted_donations = app_conn.execute('''
@@ -273,16 +378,27 @@ def ngo_dashboard():
                fd.ready_for_pickup_time as pickup_time, fd.pickup_location,
                fd.category as food_category, fd.cuisine_type, fd.spice_level,
                fd.status, fd.created_at, fd.phone, fd.email,
+               fd.pickup_lat, fd.pickup_lon,
                v.name as volunteer_name, v.contact as volunteer_contact
         FROM food_donors fd
         LEFT JOIN volunteers v ON fd.assigned_volunteer_id = v.id
         WHERE fd.status = 'accepted' AND fd.selected_ngo_id = ?
         ORDER BY fd.ready_for_pickup_time ASC, fd.created_at DESC
     ''', (ngo_id,)).fetchall() if ngo_id else []
-    accepted_donations_dict = [dict(row) for row in accepted_donations]
+    
+    accepted_donations_dict = []
+    for row in accepted_donations:
+        donation = dict(row)
+        donor_lat = donation.get('pickup_lat')
+        donor_lon = donation.get('pickup_lon')
+        distance = calculate_distance(ngo_lat, ngo_lon, donor_lat, donor_lon)
+        donation['distance_km'] = round(distance, 1) if distance != float('inf') else None
+        donation['approx_time'] = calculate_time(distance)
+        accepted_donations_dict.append(donation)
 
     conn.close()
     app_conn.close()
+    auth_conn.close()
 
     return render_template('NGO_dashboard.html', 
                          available_donations=available_donations_dict, 
