@@ -33,7 +33,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 @dashboard_bp.route('/accept_ngo', methods=['POST'])
 def accept_ngo():
     """
-    Backend route for donor accepting an NGO. Assigns NGO to donor and creates assignment record.
+    Backend route for donor requesting pickup from an NGO. Creates assignment and request records.
     """
     data = request.get_json()
     print('[DEBUG] /accept_ngo incoming data:', data)
@@ -58,16 +58,37 @@ def accept_ngo():
         # Insert assignment into assignment_db
         from database.assignment_db import get_assignment_db_connection
         conn = get_assignment_db_connection()
-        # Insert new assignment record
         cursor = conn.cursor()
+        
+        # Insert new assignment record
         cursor.execute('''
             INSERT INTO ngo_assignments (food_donor_id, food_donor_name, ngo_id, ngo_name, assigned_at)
             VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
         ''', (donor_id, donor_name, ngo_id, ngo_name))
         assignment_id = cursor.lastrowid
+        
+        # Also insert into food_donor_requests with pending status
+        cursor.execute('''
+            INSERT INTO food_donor_requests (assignment_id, food_donor_id, food_donor_name, ngo_id, ngo_name, status, ngo_acceptance_status, request_time)
+            VALUES (?, ?, ?, ?, ?, 'pending', 'pending', CURRENT_TIMESTAMP)
+        ''', (assignment_id, donor_id, donor_name, ngo_id, ngo_name))
+        
         conn.commit()
         conn.close()
-        print(f'[DEBUG] Assignment created: donor_id={donor_id}, ngo_id={ngo_id}, assignment_id={assignment_id}')
+        
+        print(f'[DEBUG] Assignment and request created: donor_id={donor_id}, ngo_id={ngo_id}, assignment_id={assignment_id}')
+        
+        # Send SMS notification to donor
+        try:
+            app_conn = get_db_connection()
+            donor = app_conn.execute('SELECT phone FROM food_donors WHERE id = ?', (donor_id,)).fetchone()
+            app_conn.close()
+            if donor and donor['phone']:
+                from utils.sms_service import notify_request_sent
+                notify_request_sent(donor['phone'], ngo_name)
+        except Exception as sms_error:
+            print(f'[SMS] Failed to send request notification: {sms_error}')
+        
         return jsonify({'success': True, 'assignment_id': assignment_id})
     except Exception as e:
         import traceback
