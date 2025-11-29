@@ -330,21 +330,39 @@ def donor_dashboard():
 
     # Convert to list of dicts and calculate distance
     available_ngos = []
+    existing_names = set()  # Track by name to avoid duplicates
+    existing_emails = set()  # Track by email to avoid duplicates
+    
     for ngo in all_ngos:
         ngo_dict = dict(ngo)
         ngo_lat = ngo_dict.get('lat')
         ngo_lon = ngo_dict.get('lon')
         distance = calculate_distance(donor_lat, donor_lon, ngo_lat, ngo_lon)
         ngo_dict['distance'] = round(distance, 2) if distance != float('inf') else None
+        ngo_dict['source'] = 'app'  # Mark source
         available_ngos.append(ngo_dict)
+        if ngo_dict.get('name'):
+            existing_names.add(ngo_dict['name'].lower())
+        if ngo_dict.get('email'):
+            existing_emails.add(ngo_dict['email'].lower())
     
-    # Add auth NGOs if not already in the list
-    existing_ids = {ngo['id'] for ngo in available_ngos}
+    # Add auth NGOs if not already in the list (by name or email)
     for ngo in auth_ngos:
         ngo_dict = dict(ngo)
-        if ngo_dict['id'] not in existing_ids:
-            ngo_dict['distance'] = None  # No location for auth NGOs
-            available_ngos.append(ngo_dict)
+        ngo_name = (ngo_dict.get('name') or '').lower()
+        ngo_email = (ngo_dict.get('email') or '').lower()
+        # Skip if name or email already exists
+        if ngo_name and ngo_name in existing_names:
+            continue
+        if ngo_email and ngo_email in existing_emails:
+            continue
+        ngo_dict['distance'] = None  # No location for auth NGOs
+        ngo_dict['source'] = 'auth'  # Mark source
+        available_ngos.append(ngo_dict)
+        if ngo_name:
+            existing_names.add(ngo_name)
+        if ngo_email:
+            existing_emails.add(ngo_email)
     
     # Sort NGOs by distance (nearest first, None values at the end)
     available_ngos.sort(key=lambda x: (x.get('distance') is None, x.get('distance') or float('inf')))
@@ -355,6 +373,8 @@ def donor_dashboard():
     
     requested_ngos = []
     accepted_ngos = []
+    requested_ngo_names = set()  # Track by name for filtering
+    accepted_ngo_names = set()
     
     if current_donor_id:
         # Get requests made by this donor
@@ -372,27 +392,37 @@ def donor_dashboard():
         
         for req in requests:
             req_dict = dict(req)
+            ngo_name = req_dict.get('ngo_name', '').lower() if req_dict.get('ngo_name') else ''
+            
             if req_dict.get('ngo_acceptance_status') == 'accepted' or req_dict.get('status') == 'accepted':
                 accepted_ngo_ids.add(req_dict['ngo_id'])
-                # Find full NGO info
+                if ngo_name:
+                    accepted_ngo_names.add(ngo_name)
+                # Find full NGO info by ID or name
                 for ngo in available_ngos:
-                    if ngo['id'] == req_dict['ngo_id']:
+                    ngo_match = ngo['id'] == req_dict['ngo_id'] or (ngo.get('name', '').lower() == ngo_name and ngo_name)
+                    if ngo_match:
                         ngo_copy = ngo.copy()
                         ngo_copy['acceptance_time'] = req_dict.get('acceptance_time')
                         accepted_ngos.append(ngo_copy)
                         break
             else:
                 requested_ngo_ids.add(req_dict['ngo_id'])
+                if ngo_name:
+                    requested_ngo_names.add(ngo_name)
                 for ngo in available_ngos:
-                    if ngo['id'] == req_dict['ngo_id']:
+                    ngo_match = ngo['id'] == req_dict['ngo_id'] or (ngo.get('name', '').lower() == ngo_name and ngo_name)
+                    if ngo_match:
                         ngo_copy = ngo.copy()
                         ngo_copy['requested_at'] = req_dict.get('assigned_at')
                         requested_ngos.append(ngo_copy)
                         break
         
-        # Remove requested and accepted NGOs from available list
+        # Remove requested and accepted NGOs from available list (by ID or name)
         available_ngos = [ngo for ngo in available_ngos 
-                         if ngo['id'] not in requested_ngo_ids and ngo['id'] not in accepted_ngo_ids]
+                         if ngo['id'] not in requested_ngo_ids and ngo['id'] not in accepted_ngo_ids
+                         and (ngo.get('name', '').lower() not in requested_ngo_names)
+                         and (ngo.get('name', '').lower() not in accepted_ngo_names)]
     
     assign_conn.close()
 
@@ -430,46 +460,81 @@ def ngo_dashboard():
     """
     # Get user info from database session if available
     db_session_id = session.get('db_session_id')
-    ngo_id = session.get('user_id')
+    auth_ngo_id = session.get('user_id')  # This is from auth.db
+    app_ngo_id = session.get('app_ngo_id')  # This is from app.db (if stored during login)
+    ngo_name = session.get('user_name', '')
+    ngo_email = session.get('user_email', '')
     
     if db_session_id:
         db_user = get_user_from_session(db_session_id)
         if db_user:
             update_session_activity(db_session_id)
             user_info = db_user
-            if not ngo_id:
-                ngo_id = db_user.get('user_id')
+            if not ngo_name:
+                ngo_name = db_user.get('user_name', '')
+            if not ngo_email:
+                ngo_email = db_user.get('user_email', '')
         else:
             # Fallback to Flask session
             user_info = {
-                'user_name': session.get('user_name', ''),
-                'user_email': session.get('user_email', ''),
+                'user_name': ngo_name,
+                'user_email': ngo_email,
                 'user_role': session.get('user_role', 'NGO'),
                 'user_registration': session.get('user_registration', ''),
                 'user_verified': session.get('user_verified', False),
-                'user_id': ngo_id
+                'user_id': auth_ngo_id
             }
     else:
         # Fallback to Flask session
         user_info = {
-            'user_name': session.get('user_name', ''),
-            'user_email': session.get('user_email', ''),
+            'user_name': ngo_name,
+            'user_email': ngo_email,
             'user_role': session.get('user_role', 'NGO'),
             'user_registration': session.get('user_registration', ''),
             'user_verified': session.get('user_verified', False),
-            'user_id': ngo_id
+            'user_id': auth_ngo_id
         }
     
-    # Get NGO's location from database
+    # CRITICAL FIX: Look up NGO in app.db by name or email to get correct ngo_id
+    # The auth.db ID doesn't match app.db ID, so we need to find the NGO by name/email
+    app_conn = get_db_connection()
+    ngo_id = app_ngo_id  # Use stored app_ngo_id if available
     ngo_lat = None
     ngo_lon = None
+    
+    # If app_ngo_id is set, use it directly
     if ngo_id:
-        app_conn = get_db_connection()
         ngo_record = app_conn.execute('SELECT lat, lon FROM ngos WHERE id = ?', (ngo_id,)).fetchone()
-        app_conn.close()
         if ngo_record:
             ngo_lat = ngo_record['lat']
             ngo_lon = ngo_record['lon']
+    else:
+        # Try to find NGO by name first, then by email
+        if ngo_name:
+            ngo_record = app_conn.execute('SELECT id, lat, lon FROM ngos WHERE name = ?', (ngo_name,)).fetchone()
+            if ngo_record:
+                ngo_id = ngo_record['id']
+                ngo_lat = ngo_record['lat']
+                ngo_lon = ngo_record['lon']
+        
+        if not ngo_id and ngo_email:
+            ngo_record = app_conn.execute('SELECT id, lat, lon FROM ngos WHERE email = ?', (ngo_email,)).fetchone()
+            if ngo_record:
+                ngo_id = ngo_record['id']
+                ngo_lat = ngo_record['lat']
+                ngo_lon = ngo_record['lon']
+        
+        # If still no match, try auth.db ID as fallback
+        if not ngo_id and auth_ngo_id:
+            ngo_record = app_conn.execute('SELECT id, lat, lon FROM ngos WHERE id = ?', (auth_ngo_id,)).fetchone()
+            if ngo_record:
+                ngo_id = ngo_record['id']
+                ngo_lat = ngo_record['lat']
+                ngo_lon = ngo_record['lon']
+    
+    app_conn.close()
+    
+    print(f'[DEBUG] NGO Dashboard - auth_ngo_id: {auth_ngo_id}, app_ngo_id: {app_ngo_id}, resolved ngo_id: {ngo_id}, name: {ngo_name}, email: {ngo_email}')
     
     from database.assignment_db import get_assignment_db_connection
     conn = get_assignment_db_connection()

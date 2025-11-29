@@ -431,6 +431,20 @@ def login_ngo():
                 return jsonify({'success': False, 'message': f'Database error: {str(e)}'}), 500
 
             ngo_data = dict(ngo_row)
+            
+            # Look up NGO in app.db to get the correct ngo_id for assignments
+            app_ngo_id = None
+            try:
+                app_conn = get_db_connection()
+                # Try to find NGO by name or email
+                app_ngo = app_conn.execute('SELECT id FROM ngos WHERE name = ? OR email = ?', 
+                                           (ngo_data['name'], ngo_data['email'])).fetchone()
+                if app_ngo:
+                    app_ngo_id = app_ngo['id']
+                app_conn.close()
+                print(f"[DEBUG] Found app.db NGO ID: {app_ngo_id} for auth.db NGO: {ngo_data['name']}")
+            except Exception as e:
+                print(f"[DEBUG] Error looking up NGO in app.db: {str(e)}")
 
             ip_address = request.remote_addr
             user_agent = request.headers.get('User-Agent', '')
@@ -442,13 +456,17 @@ def login_ngo():
             )
 
             session['user_id'] = ngo_data['id']
+            session['app_ngo_id'] = app_ngo_id  # Store the app.db NGO ID
             session['user_name'] = ngo_data['name']
             session['user_email'] = ngo_data['email']
             session['user_role'] = 'NGO'
+            session['user_type'] = 'NGO'
             session['user_registration'] = ngo_data.get('registration_number', '')
             session['user_verified'] = bool(ngo_data.get('verified', 0))
             session['firebase_uid'] = firebase_uid
             session['db_session_id'] = db_session_id
+            session['user_session_key'] = f"ngo_{ngo_data['id']}_{ngo_data['email']}"
+            session['user_contact'] = ngo_data['email']
             session.permanent = True
 
             print(f"[DEBUG] Session info: {dict(session)}")
