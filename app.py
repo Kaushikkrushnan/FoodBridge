@@ -89,7 +89,12 @@ def test_ngo_login(ngo_id):
     """
     Test route to simulate NGO login for development/testing.
     Sets session variables to simulate being logged in as an NGO.
+    ONLY available in debug mode.
     """
+    # Only allow in debug mode
+    if not app.debug:
+        return "This route is only available in debug mode", 403
+    
     from db import get_db_connection
     conn = get_db_connection()
     ngo = conn.execute('SELECT id, name, email FROM ngos WHERE id = ?', (ngo_id,)).fetchone()
