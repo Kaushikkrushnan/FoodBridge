@@ -542,7 +542,8 @@ def ngo_dashboard():
 
     # Show all food donors assigned to this NGO from both tables
     available_donations = conn.execute('''
-        SELECT a.id, a.food_donor_id, a.food_donor_name, a.ngo_id, a.ngo_name, r.status, r.ngo_acceptance_status, a.assigned_at
+        SELECT a.id as assignment_id, r.id as request_id, a.food_donor_id, a.food_donor_name, a.ngo_id, a.ngo_name, 
+               r.status, r.ngo_acceptance_status, a.assigned_at
         FROM ngo_assignments a
         LEFT JOIN food_donor_requests r ON a.id = r.assignment_id
         WHERE a.ngo_id = ? AND (r.status IS NULL OR r.status = 'pending')
@@ -553,6 +554,8 @@ def ngo_dashboard():
     available_donations_dict = []
     for donation in available_donations:
         d = dict(donation)
+        # Use request_id for actions, fall back to assignment_id
+        d['id'] = d.get('request_id') or d.get('assignment_id')
         donor_id = d.get('food_donor_id')
         if donor_id:
             donor_record = app_conn.execute('SELECT lat, lon, address, phone FROM food_donors WHERE id = ?', (donor_id,)).fetchone()
@@ -573,8 +576,8 @@ def ngo_dashboard():
     available_donations_dict.sort(key=lambda x: (x.get('distance') is None, x.get('distance') or float('inf')))
 
     accepted_donations = conn.execute('''
-        SELECT a.id, a.food_donor_id, a.food_donor_name, a.ngo_id, a.ngo_name, r.status, r.ngo_acceptance_status, 
-               a.acceptance_time, r.volunteer_id, r.volunteer_name
+        SELECT a.id as assignment_id, r.id as request_id, a.food_donor_id, a.food_donor_name, a.ngo_id, a.ngo_name, 
+               r.status, r.ngo_acceptance_status, a.acceptance_time, r.volunteer_id, r.volunteer_name
         FROM ngo_assignments a
         LEFT JOIN food_donor_requests r ON a.id = r.assignment_id
         WHERE a.ngo_id = ? AND r.status = 'accepted'
@@ -585,6 +588,8 @@ def ngo_dashboard():
     accepted_donations_dict = []
     for donation in accepted_donations:
         d = dict(donation)
+        # Use request_id for mark completed, fall back to assignment_id
+        d['id'] = d.get('request_id') or d.get('assignment_id')
         donor_id = d.get('food_donor_id')
         if donor_id:
             donor_record = app_conn.execute('SELECT lat, lon, address, phone FROM food_donors WHERE id = ?', (donor_id,)).fetchone()
