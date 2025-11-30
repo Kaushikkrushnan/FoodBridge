@@ -187,6 +187,11 @@ def register_ngo():
         registration_number = data.get('registration_number')
         primary_contact = data.get('primary_contact', '')
         id_token = data.get('id_token')  # Firebase ID token
+        
+        # Location data
+        lat = data.get('lat')
+        lon = data.get('lon')
+        address = data.get('address', '')
 
         # File paths (uploaded via separate endpoint or included in data)
         society_cert = data.get('society_cert', '')
@@ -248,6 +253,19 @@ def register_ngo():
             conn.commit()
             ngo_id = insert_cursor.lastrowid
             conn.close()
+            
+            # Also insert into app.db ngos table with location
+            app_conn = get_db_connection()
+            try:
+                app_conn.execute('''
+                    INSERT INTO ngos (name, email, registration_number, lat, lon, address)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (name, email, registration_number, lat, lon, address))
+                app_conn.commit()
+            except Exception as e:
+                print(f"Warning: Could not insert into ngos table: {e}")
+            finally:
+                app_conn.close()
 
             # Create session for newly registered user
             ip_address = request.remote_addr
