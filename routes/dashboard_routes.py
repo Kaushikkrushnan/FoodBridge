@@ -608,3 +608,206 @@ def get_distance():
             'message': 'Error calculating distance, using estimate'
         }), 200
 
+
+@dashboard_bp.route('/mark_food_ready', methods=['POST'])
+def mark_food_ready():
+    """
+    Mark food as packed and ready for pickup.
+    This can only be done by the food donor who made the request.
+    """
+    data = request.get_json()
+    request_id = data.get('request_id')
+    
+    if not request_id:
+        return jsonify({'success': False, 'error': 'Request ID required'}), 400
+    
+    # Verify this is the donor's request (server-side authorization)
+    donor_id = session.get('user_id')
+    user_role = session.get('user_role', '')
+    
+    if not donor_id:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        # Check that this request belongs to this donor
+        request_row = conn.execute('''
+            SELECT * FROM food_donor_requests WHERE id = ?
+        ''', (request_id,)).fetchone()
+        
+        if not request_row:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Request not found'}), 404
+        
+        # Only allow donor to mark food as ready (or allow if user_role contains 'Donor')
+        if str(request_row['food_donor_id']) != str(donor_id) and 'Donor' not in user_role:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Not authorized to mark this request'}), 403
+        
+        # Update the food_ready_at timestamp
+        conn.execute('''
+            UPDATE food_donor_requests
+            SET food_ready_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (request_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Food marked as ready'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/mark_collected', methods=['POST'])
+def mark_collected():
+    """
+    Mark food as collected by volunteer.
+    This can only be done by the assigned volunteer.
+    """
+    data = request.get_json()
+    request_id = data.get('request_id')
+    
+    if not request_id:
+        return jsonify({'success': False, 'error': 'Request ID required'}), 400
+    
+    volunteer_id = session.get('user_id')
+    user_role = session.get('user_role', '')
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        # Update collected_at timestamp and status
+        conn.execute('''
+            UPDATE food_donor_requests
+            SET collected_at = CURRENT_TIMESTAMP, status = 'in_transit', updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (request_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Food marked as collected'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/mark_near_ngo', methods=['POST'])
+def mark_near_ngo():
+    """
+    Mark volunteer as near NGO.
+    This can only be done by the assigned volunteer.
+    """
+    data = request.get_json()
+    request_id = data.get('request_id')
+    
+    if not request_id:
+        return jsonify({'success': False, 'error': 'Request ID required'}), 400
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        # Update near_ngo_at timestamp
+        conn.execute('''
+            UPDATE food_donor_requests
+            SET near_ngo_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (request_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Marked as near NGO'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/mark_delivered_final', methods=['POST'])
+def mark_delivered_final():
+    """
+    Mark food as delivered.
+    This can only be done by the NGO who accepted the request.
+    """
+    data = request.get_json()
+    request_id = data.get('request_id')
+    
+    if not request_id:
+        return jsonify({'success': False, 'error': 'Request ID required'}), 400
+    
+    ngo_id = session.get('user_id')
+    user_role = session.get('user_role', '')
+    
+    if not ngo_id:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        # Check that this request was accepted by this NGO
+        request_row = conn.execute('''
+            SELECT * FROM food_donor_requests WHERE id = ?
+        ''', (request_id,)).fetchone()
+        
+        if not request_row:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Request not found'}), 404
+        
+        # Only allow NGO to confirm delivery
+        if str(request_row['ngo_id']) != str(ngo_id) and 'NGO' not in user_role:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Not authorized to confirm this delivery'}), 403
+        
+        # Update the delivered_at timestamp and status
+        conn.execute('''
+            UPDATE food_donor_requests
+            SET delivered_at = CURRENT_TIMESTAMP, status = 'delivered', updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (request_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Delivery confirmed'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/get_progress/<int:request_id>', methods=['GET'])
+def get_progress(request_id):
+    """
+    Get progress tracking information for a request.
+    Returns all progress step timestamps and current status.
+    """
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        request_row = conn.execute('''
+            SELECT id, status, ngo_acceptance_status, food_ready_at, collected_at, 
+                   near_ngo_at, delivered_at, volunteer_name, volunteer_phone, updated_at
+            FROM food_donor_requests WHERE id = ?
+        ''', (request_id,)).fetchone()
+        
+        conn.close()
+        
+        if not request_row:
+            return jsonify({'success': False, 'error': 'Request not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'progress': dict(request_row)
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
