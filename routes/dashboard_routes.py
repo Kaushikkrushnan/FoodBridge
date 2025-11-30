@@ -488,3 +488,120 @@ def volunteer_dashboard():
                          completed_deliveries=completed_deliveries_dict,
                          **user_info)
 
+
+@dashboard_bp.route('/update_delivery_status', methods=['POST'])
+def update_delivery_status():
+    """
+    Update the delivery status of a food request.
+    Used by volunteers to update request status during delivery.
+    """
+    data = request.get_json()
+    request_id = data.get('request_id')
+    new_status = data.get('status')
+    
+    if not request_id or not new_status:
+        return jsonify({'success': False, 'error': 'Request ID and status are required'}), 400
+    
+    valid_statuses = ['assigned', 'collected', 'in_transit', 'delivered']
+    if new_status not in valid_statuses:
+        return jsonify({'success': False, 'error': f'Invalid status. Must be one of: {valid_statuses}'}), 400
+    
+    try:
+        from database.assignment_db import get_assignment_db_connection
+        conn = get_assignment_db_connection()
+        
+        # Update the status
+        conn.execute('''
+            UPDATE food_donor_requests
+            SET status = ?
+            WHERE id = ?
+        ''', (new_status, request_id))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'status': new_status})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/get_distance', methods=['GET'])
+def get_distance():
+    """
+    Calculate distance between donor and NGO.
+    Returns realistic distance in km.
+    """
+    try:
+        donor_lat = request.args.get('donor_lat', type=float)
+        donor_lon = request.args.get('donor_lon', type=float)
+        ngo_lat = request.args.get('ngo_lat', type=float)
+        ngo_lon = request.args.get('ngo_lon', type=float)
+        
+        # If any coordinates are missing, try to get from database
+        donor_id = request.args.get('donor_id', type=int)
+        ngo_id = request.args.get('ngo_id', type=int)
+        
+        conn = get_db_connection()
+        
+        # Get donor coordinates if not provided
+        if (donor_lat is None or donor_lon is None) and donor_id:
+            donor = conn.execute('''
+                SELECT pickup_lat, pickup_lon FROM food_requests WHERE id = ?
+            ''', (donor_id,)).fetchone()
+            if donor:
+                donor_lat = donor['pickup_lat']
+                donor_lon = donor['pickup_lon']
+        
+        # Get NGO coordinates if not provided
+        if (ngo_lat is None or ngo_lon is None) and ngo_id:
+            ngo = conn.execute('''
+                SELECT lat, lon FROM ngos WHERE id = ?
+            ''', (ngo_id,)).fetchone()
+            if ngo:
+                ngo_lat = ngo['lat']
+                ngo_lon = ngo['lon']
+        
+        conn.close()
+        
+        # Check if we have valid coordinates
+        if donor_lat is None or donor_lon is None or ngo_lat is None or ngo_lon is None:
+            # Return a reasonable default distance instead of 999999
+            return jsonify({
+                'success': True,
+                'distance_km': 5.0,  # Default 5km if coordinates missing
+                'estimated': True,
+                'message': 'Coordinates not available, using estimated distance'
+            }), 200
+        
+        # Calculate actual distance using haversine formula
+        import math
+        
+        def haversine(lat1, lon1, lat2, lon2):
+            lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+            a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+            c = 2 * math.asin(math.sqrt(a))
+            r = 6371
+            return c * r
+        
+        distance = haversine(donor_lat, donor_lon, ngo_lat, ngo_lon)
+        
+        return jsonify({
+            'success': True,
+            'distance_km': round(distance, 2),
+            'estimated': False
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        # Return reasonable fallback instead of error
+        return jsonify({
+            'success': True,
+            'distance_km': 5.0,
+            'estimated': True,
+            'message': 'Error calculating distance, using estimate'
+        }), 200
+

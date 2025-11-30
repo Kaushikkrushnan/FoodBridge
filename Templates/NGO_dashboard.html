@@ -1,8 +1,50 @@
 {% extends 'base.html' %}
 {% block title %}NGO Dashboard{% endblock %}
+{% block head %}
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        .tracking-info {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        .pulse-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+    </style>
+{% endblock %}
 {% block content %}
     <div class="container mx-auto py-8">
         <h1 class="text-4xl font-bold mb-8 text-center">NGO Dashboard</h1>
+        
+        <!-- Map Section for Live Tracking -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                <span class="pulse-dot mr-2"></span> Live Volunteer Tracking
+            </h2>
+            <div id="map"></div>
+            <p class="text-sm text-gray-500 mt-2">Map updates automatically every 10 seconds</p>
+        </div>
+        
         <div class="mb-12">
             <h2 class="text-3xl font-bold text-gray-800 mb-6">Available Food Donations</h2>
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="available-donations-grid">
@@ -57,6 +99,14 @@
                         <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
                         <p><strong>Pickup Time:</strong> {{ donation.pickup_time or 'N/A' }}</p>
                         <span class="status-badge status-active">Accepted</span>
+                        
+                        <!-- Live Tracking Info -->
+                        <div class="tracking-info" id="tracking-{{ donation.id }}">
+                            <p><strong>Status:</strong> <span id="status-{{ donation.id }}">Loading...</span></p>
+                            <p><strong>Volunteer:</strong> <span id="volunteer-{{ donation.id }}">Waiting for volunteer...</span></p>
+                            <p><strong>ETA:</strong> <span id="eta-{{ donation.id }}">--</span></p>
+                        </div>
+                        
                         <div class="mt-4">
                             <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewAcceptedDonation({{ donation.id }})">View Details</button>
                         </div>
@@ -79,7 +129,97 @@
             </div>
         </div>
     </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Initialize map
+        let map;
+        let volunteerMarkers = {};
+        
+        function initMap() {
+            map = L.map('map').setView([13.0827, 80.2707], 12);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+        
+        // Update tracking info for accepted donations
+        async function updateTrackingInfo() {
+            const acceptedDonations = {{ accepted_donations|tojson if accepted_donations else '[]' }};
+            
+            for (const donation of acceptedDonations) {
+                try {
+                    const response = await fetch('/get_request_status/' + donation.id);
+                    const data = await response.json();
+                    
+                    if (data.success && data.request) {
+                        const req = data.request;
+                        
+                        // Update status
+                        const statusEl = document.getElementById('status-' + donation.id);
+                        if (statusEl) {
+                            let statusText = req.status || 'Pending';
+                            let statusClass = '';
+                            
+                            if (req.status === 'in_transit') {
+                                statusText = '🚗 In Transit';
+                                statusClass = 'text-purple-600 font-bold';
+                            } else if (req.status === 'assigned') {
+                                statusText = '📋 Assigned - Waiting for pickup';
+                                statusClass = 'text-yellow-600';
+                            } else if (req.status === 'delivered') {
+                                statusText = '✅ Delivered';
+                                statusClass = 'text-green-600 font-bold';
+                            }
+                            
+                            statusEl.textContent = statusText;
+                            statusEl.className = statusClass;
+                        }
+                        
+                        // Update volunteer info
+                        const volunteerEl = document.getElementById('volunteer-' + donation.id);
+                        if (volunteerEl && req.volunteer_name) {
+                            volunteerEl.textContent = req.volunteer_name + (req.volunteer_contact ? ' (' + req.volunteer_contact + ')' : '');
+                        }
+                        
+                        // Update ETA
+                        const etaEl = document.getElementById('eta-' + donation.id);
+                        if (etaEl) {
+                            if (req.status === 'in_transit' && req.eta_minutes) {
+                                etaEl.textContent = req.eta_minutes + ' minutes';
+                            } else if (req.status === 'delivered') {
+                                etaEl.textContent = 'Delivered!';
+                            } else {
+                                etaEl.textContent = '--';
+                            }
+                        }
+                        
+                        // Update map marker for volunteer
+                        if (req.volunteer_lat && req.volunteer_lon) {
+                            if (volunteerMarkers[donation.id]) {
+                                volunteerMarkers[donation.id].setLatLng([req.volunteer_lat, req.volunteer_lon]);
+                            } else {
+                                const volunteerIcon = L.divIcon({
+                                    className: 'volunteer-marker',
+                                    html: '<div style="background:#22c55e;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>',
+                                    iconSize: [20, 20],
+                                    iconAnchor: [10, 10]
+                                });
+                                
+                                volunteerMarkers[donation.id] = L.marker([req.volunteer_lat, req.volunteer_lon], {icon: volunteerIcon})
+                                    .addTo(map)
+                                    .bindPopup('<strong>' + (req.volunteer_name || 'Volunteer') + '</strong><br>Status: ' + (req.status || 'Active'));
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error updating tracking for donation ' + donation.id + ':', error);
+                }
+            }
+        }
+        
         function getDonationFromDom(donationId) {
             const card = document.querySelector('.donation-card[data-id="' + donationId + '"]');
             if (!card) return null;
@@ -133,7 +273,7 @@
                     acceptedGrid.prepend(clone);
                     card.remove();
                     closeRequestModal();
-                    alert('Donation accepted!');
+                    alert('Donation accepted! A volunteer will be assigned soon.');
                 } else {
                     alert('Error: ' + (data.error || 'Unknown error'));
                 }
@@ -188,5 +328,14 @@
                 closeRequestModal();
             }
         }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            updateTrackingInfo();
+            
+            // Update tracking info every 10 seconds
+            setInterval(updateTrackingInfo, 10000);
+        });
     </script>
 {% endblock %}

@@ -1,5 +1,17 @@
 {% extends 'base.html' %}
 {% block title %}Progress Tracking - Surplus-to-NGO{% endblock %}
+{% block head %}
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+{% endblock %}
 {% block content %}
     <div class="container mx-auto px-4 py-8">
         <!-- Header -->
@@ -13,6 +25,14 @@
             <a href="{{ url_for('dashboard.donor_dashboard') }}" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition duration-300 mr-4">Food Donor Dashboard</a>
             <a href="{{ url_for('dashboard.ngo_dashboard') }}" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300">NGO Dashboard</a>
         </div>
+        
+        <!-- Map Section -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4">Live Location Map</h2>
+            <div id="map"></div>
+            <p class="text-sm text-gray-500 mt-2">Map updates automatically every 30 seconds</p>
+        </div>
+        
         <!-- Top Section: Volunteer Transport Details -->
         <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
             <h2 class="text-2xl font-semibold mb-4">Transport Volunteers</h2>
@@ -171,4 +191,69 @@
             </div>
         </div>
     </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map centered on Chennai
+        const map = L.map('map').setView([13.0827, 80.2707], 12);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let volunteerMarkers = [];
+
+        // Custom icons
+        const volunteerIcon = L.divIcon({
+            className: 'volunteer-marker',
+            html: '<div style="background:#22c55e;width:16px;height:16px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        });
+
+        // Function to update map markers
+        async function updateMap() {
+            try {
+                // Fetch volunteer locations
+                const volunteerResponse = await fetch('/get_available_volunteers?pickup_lat=13.0827&pickup_lon=80.2707&pickup_time=12:00');
+                const volunteerData = await volunteerResponse.json();
+
+                // Clear existing markers
+                volunteerMarkers.forEach(marker => map.removeLayer(marker));
+                volunteerMarkers = [];
+
+                if (volunteerData.success) {
+                    volunteerData.volunteers.forEach(vol => {
+                        const marker = L.marker([vol.lat, vol.lon], {icon: volunteerIcon}).addTo(map);
+                        marker.bindPopup(`
+                            <div class="text-sm">
+                                <h4 class="font-bold">${vol.name}</h4>
+                                <p>Volunteer</p>
+                                <p>Distance: ${vol.distance} km</p>
+                                <p>Contact: ${vol.contact}</p>
+                            </div>
+                        `);
+                        volunteerMarkers.push(marker);
+                    });
+                }
+                
+                // Fit map to show all markers if any
+                if (volunteerMarkers.length > 0) {
+                    const group = new L.featureGroup(volunteerMarkers);
+                    map.fitBounds(group.getBounds().pad(0.1));
+                }
+
+            } catch (error) {
+                console.error('Error updating map:', error);
+            }
+        }
+
+        // Initial update
+        updateMap();
+
+        // Update every 30 seconds
+        setInterval(updateMap, 30000);
+    </script>
 {% endblock %}
