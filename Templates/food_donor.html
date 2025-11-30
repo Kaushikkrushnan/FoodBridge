@@ -6,6 +6,8 @@
 	<title>Food Donor Portal • Surplus-to-NGO</title>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='Food_donor.css') }}">
+    <!-- Leaflet CSS for map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         .food-donor-login-key {
             position: fixed;
@@ -23,6 +25,50 @@
         }
         .food-donor-login-key:hover {
             background-color: #4338ca;
+        }
+        #location-map {
+            height: 300px;
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 2px solid #e5e7eb;
+        }
+        .location-picker-container {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .location-picker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .location-picker-header h4 {
+            margin: 0;
+            font-weight: 600;
+            color: #374151;
+        }
+        .use-my-location-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .use-my-location-btn:hover {
+            background: #2563eb;
+        }
+        .coords-display {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 5px;
         }
     </style>
 </head>
@@ -91,10 +137,22 @@
 						<input id="pickup_time" name="pickup_time" type="datetime-local" required>
 					</div>
                 </div>
+                </div>
 				<div class="row">
-					<div>
-						<label for="pickup_location">Pickup Location (Full Address)</label>
-						<input id="pickup_location" name="pickup_location" type="text" placeholder="123 Main St, City, State, Zip" required>
+					<div class="location-picker-container">
+                        <div class="location-picker-header">
+                            <h4>📍 Select Pickup Location</h4>
+                            <button type="button" class="use-my-location-btn" onclick="useMyLocation()">
+                                📍 Use My Location
+                            </button>
+                        </div>
+                        <div id="location-map"></div>
+                        <p class="text-sm text-gray-500 mb-2">Click on the map to set your pickup location, or use the button above to auto-detect.</p>
+                        <label for="pickup_location">Pickup Address</label>
+						<input id="pickup_location" name="pickup_location" type="text" placeholder="Address will appear here after selecting on map" required>
+                        <input type="hidden" id="pickup_lat" name="pickup_lat" value="">
+                        <input type="hidden" id="pickup_lon" name="pickup_lon" value="">
+                        <p class="coords-display" id="coords-display">Coordinates: Not selected</p>
 					</div>
 				</div>
 
@@ -172,5 +230,107 @@
 			Thank you for your generosity!
 		</div>
 	</div>
+    
+    <!-- Leaflet JS for map -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map centered on Chennai (default location)
+        let map;
+        let marker;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize map
+            map = L.map('location-map').setView([13.0827, 80.2707], 12);
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Add click handler to map
+            map.on('click', function(e) {
+                setLocation(e.latlng.lat, e.latlng.lng);
+            });
+        });
+        
+        function setLocation(lat, lng) {
+            // Remove existing marker
+            if (marker) {
+                map.removeLayer(marker);
+            }
+            
+            // Add new marker
+            marker = L.marker([lat, lng], {
+                draggable: true
+            }).addTo(map);
+            
+            // Update on marker drag
+            marker.on('dragend', function(e) {
+                const pos = e.target.getLatLng();
+                updateLocationFields(pos.lat, pos.lng);
+            });
+            
+            // Update fields
+            updateLocationFields(lat, lng);
+            
+            // Center map on marker
+            map.setView([lat, lng], 15);
+        }
+        
+        function updateLocationFields(lat, lng) {
+            // Update hidden fields
+            document.getElementById('pickup_lat').value = lat.toFixed(6);
+            document.getElementById('pickup_lon').value = lng.toFixed(6);
+            
+            // Update coordinates display
+            document.getElementById('coords-display').textContent = 
+                `Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            
+            // Try to get address using reverse geocoding (Nominatim)
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.display_name) {
+                        document.getElementById('pickup_location').value = data.display_name;
+                    } else {
+                        document.getElementById('pickup_location').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Reverse geocoding error:', error);
+                    document.getElementById('pickup_location').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                });
+        }
+        
+        function useMyLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        setLocation(lat, lng);
+                    },
+                    function(error) {
+                        let errorMsg = 'Could not get your location. ';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMsg += 'Location permission denied.';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMsg += 'Location unavailable.';
+                                break;
+                            case error.TIMEOUT:
+                                errorMsg += 'Request timed out.';
+                                break;
+                        }
+                        alert(errorMsg + ' Please click on the map to select your location manually.');
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            } else {
+                alert('Geolocation is not supported by your browser. Please click on the map to select your location.');
+            }
+        }
+    </script>
 </body>
 </html>
