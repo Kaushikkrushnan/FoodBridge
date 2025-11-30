@@ -1,6 +1,80 @@
 {% extends 'base.html' %}
 {% block title %}Donor Dashboard{% endblock %}
+{% block head %}
+    <style>
+        .user-info-box {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background-color: #4f46e5;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+            max-width: 280px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .user-info-box .user-type {
+            font-size: 12px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .user-info-box .user-name {
+            font-size: 16px;
+            margin-top: 4px;
+        }
+        .request-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+        }
+        .request-modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .distance-badge {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .eta-badge {
+            background: #dcfce7;
+            color: #166534;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+    </style>
+{% endblock %}
 {% block content %}
+    <!-- User Info Box -->
+    {% if user_name %}
+    <div class="user-info-box">
+        <div class="user-type">{{ user_role or 'Donor' }}</div>
+        <div class="user-name">{{ user_name }}</div>
+    </div>
+    {% endif %}
+    
     <div class="container max-w-7xl mx-auto p-4 md:p-8">
         <!-- Header Section -->
         <div class="dashboard-header text-center mb-8">
@@ -13,9 +87,11 @@
             <a href="{{ url_for('dashboard.donor_my_accepted_ngos') }}" class="btn bg-purple-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-purple-700 transition duration-300">My Accepted NGOs</a>
             <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">Live Progress Tracking</a>
         </nav>
+        
         <!-- Available NGOs Section -->
         <div class="mb-12">
             <h2 class="text-3xl font-bold text-gray-800 mb-6">Available NGOs</h2>
+            <p class="text-gray-600 mb-4">NGOs are sorted by distance (nearest first)</p>
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="available-ngos-grid">
                 {% if available_ngos %}
                     {% for ngo in available_ngos %}
@@ -23,13 +99,19 @@
                          data-id="{{ ngo.id }}"
                          data-name="{{ ngo.name or '' }}"
                          data-email="{{ ngo.email or '' }}"
-                         data-reg="{{ ngo.registration_number or '' }}">
+                         data-reg="{{ ngo.registration_number or '' }}"
+                         data-lat="{{ ngo.lat or 13.0827 }}"
+                         data-lon="{{ ngo.lon or 80.2707 }}">
                         <h3 class="text-2xl font-semibold mb-2">{{ ngo.name or 'N/A' }}</h3>
                         <p><strong>Email:</strong> {{ ngo.email or 'N/A' }}</p>
                         <p><strong>Registration:</strong> {{ ngo.registration_number or 'N/A' }}</p>
-                        <span class="status-badge status-vacant">Available</span>
+                        <div class="flex gap-2 mt-2">
+                            <span class="distance-badge" id="distance-{{ ngo.id }}">📍 Calculating...</span>
+                            <span class="eta-badge" id="eta-{{ ngo.id }}">🕐 --</span>
+                        </div>
+                        <span class="status-badge status-vacant mt-2 inline-block">Available</span>
                         <div class="mt-4">
-                            <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="openNgoModal('{{ ngo.id }}')">Review & Accept</button>
+                            <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="openRequestModal('{{ ngo.id }}')">Request NGO</button>
                         </div>
                     </div>
                     {% endfor %}
@@ -47,19 +129,20 @@
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="requested-ngos-grid">
                 {% if requested_ngos %}
                     {% for ngo in requested_ngos %}
-                    <div class="ngo-card bg-white p-6 rounded-lg shadow-lg border-gray-200">
+                    <div class="ngo-card bg-white p-6 rounded-lg shadow-lg border-yellow-300 border-2"
+                         data-id="{{ ngo.id }}">
                         <h3 class="text-2xl font-semibold mb-2">{{ ngo.name or 'N/A' }}</h3>
                         <p><strong>Email:</strong> {{ ngo.email or 'N/A' }}</p>
                         <p><strong>Registration:</strong> {{ ngo.registration_number or 'N/A' }}</p>
                         <p><strong>Requested Donations:</strong> {{ ngo.requested_donations_count or 0 }}</p>
-                        <span class="status-badge status-occupied">Requested</span>
+                        <span class="status-badge bg-yellow-500 text-white px-2 py-1 rounded mt-2 inline-block">Pending</span>
                         <div class="mt-4">
                             <button class="btn w-full bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition" onclick="viewRequestedNgoDetails('{{ ngo.id }}')">View Details</button>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
-                    <div class="col-span-full text-center py-12">
+                    <div class="col-span-full text-center py-12" id="no-requested-ngos">
                         <p class="text-gray-500 text-lg">No requested NGOs.</p>
                     </div>
                 {% endif %}
@@ -72,37 +155,33 @@
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="accepted-ngos-grid">
                 {% if accepted_ngos %}
                     {% for ngo in accepted_ngos %}
-                    <div class="ngo-card bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                    <div class="ngo-card bg-white p-6 rounded-lg shadow-lg border-green-300 border-2"
+                         data-id="{{ ngo.id }}">
                         <h3 class="text-2xl font-semibold mb-2">{{ ngo.name or 'N/A' }}</h3>
                         <p><strong>Email:</strong> {{ ngo.email or 'N/A' }}</p>
                         <p><strong>Registration:</strong> {{ ngo.registration_number or 'N/A' }}</p>
                         <p><strong>Accepted Donations:</strong> {{ ngo.accepted_donations_count or 0 }}</p>
-                        <span class="status-badge status-occupied">Accepted</span>
+                        <span class="status-badge bg-green-500 text-white px-2 py-1 rounded mt-2 inline-block">Accepted</span>
                         <div class="mt-4">
-                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewAcceptedNgoDetails('{{ ngo.id }}')">View Details</button>
+                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewAcceptedNgoDetails('{{ ngo.id }}')">View Progress</button>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
-                    <div class="col-span-full text-center py-12">
+                    <div class="col-span-full text-center py-12" id="no-accepted-ngos">
                         <p class="text-gray-500 text-lg">No accepted NGOs yet.</p>
                     </div>
                 {% endif %}
             </div>
         </div>
-        
-        <!-- "No results" message (hidden by default) -->
-        <div id="no-ngos" class="card bg-white p-6 rounded-lg shadow-md text-center text-gray-500" style="display: none;">
-            <p>No verified NGOs available at the moment.</p>
-        </div>
 
     </div>
 
-    <!-- NGO Details Modal -->
-    <div id="ngo-modal" class="modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
-        <div class="modal-content bg-white rounded-lg shadow-2xl" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 2rem; max-width: 500px; width: 90%;">
-            <span class="modal-close" style="position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: #666;" onclick="closeNgoModal()">&times;</span>
-            <div id="ngo-modal-body">
+    <!-- Request NGO Confirmation Modal -->
+    <div id="request-modal" class="request-modal">
+        <div class="request-modal-content">
+            <span class="absolute top-4 right-5 text-3xl font-bold text-gray-500 hover:text-red-600 cursor-pointer" onclick="closeRequestModal()">&times;</span>
+            <div id="request-modal-body">
                 <!-- Content will be populated by JavaScript -->
             </div>
         </div>
@@ -118,50 +197,57 @@
                 name: card.dataset.name || 'N/A',
                 email: card.dataset.email || 'N/A',
                 registration_number: card.dataset.reg || 'N/A',
-                status: card.dataset.status || 'vacant'
+                lat: parseFloat(card.dataset.lat) || 13.0827,
+                lon: parseFloat(card.dataset.lon) || 80.2707
             };
         }
 
-        function openNgoModal(ngoId) {
+        // Helper function to safely display text (prevents XSS)
+        const escapeHtml = (text) => {
+            if (!text) return 'N/A';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        };
+
+        function openRequestModal(ngoId) {
             const ngo = getNgoFromDom(ngoId);
             if (!ngo) {
                 console.error('NGO not found');
                 return;
             }
 
-            const modalBody = document.getElementById('ngo-modal-body');
-
-            // Helper function to safely display text (prevents XSS)
-            const escapeHtml = (text) => {
-                if (!text) return 'N/A';
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            };
+            const modalBody = document.getElementById('request-modal-body');
+            const distanceEl = document.getElementById('distance-' + ngoId);
+            const distance = distanceEl ? distanceEl.textContent : 'Unknown';
 
             modalBody.innerHTML = `
-                <h2 class="text-3xl font-bold mb-4">${escapeHtml(ngo.name || 'N/A')}</h2>
-                <p class="text-lg mb-2"><strong>Email:</strong> ${escapeHtml(ngo.email || 'N/A')}</p>
-                <p class="text-lg mb-2"><strong>Registration Number:</strong> ${escapeHtml(ngo.registration_number || 'N/A')}</p>
-                <p class="text-lg mb-2"><strong>Status:</strong> <span class="status-badge status-vacant">Available</span></p>
-                <hr class="my-6">
-                <h3 class="text-2xl font-semibold mb-3">Contact Information</h3>
-                <p class="text-lg">Email: ${escapeHtml(ngo.email || 'N/A')}</p>
-                <div class="mt-8">
-                    <button class="btn w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition text-lg font-semibold" onclick="acceptNgoBackend(${ngo.id}, '${escapeHtml(ngo.name)}')">
-                        Accept NGO
+                <h2 class="text-2xl font-bold mb-4">Confirm Request</h2>
+                <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                    <h3 class="text-xl font-semibold mb-2">${escapeHtml(ngo.name)}</h3>
+                    <p class="text-gray-600 mb-1"><strong>Email:</strong> ${escapeHtml(ngo.email)}</p>
+                    <p class="text-gray-600 mb-1"><strong>Registration:</strong> ${escapeHtml(ngo.registration_number)}</p>
+                    <p class="text-gray-600"><strong>Distance:</strong> ${distance}</p>
+                </div>
+                <p class="text-gray-700 mb-6">Are you sure you want to request this NGO to pick up your food donation?</p>
+                <div class="flex gap-4">
+                    <button class="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition font-semibold" onclick="confirmRequest('${ngo.id}', '${escapeHtml(ngo.name)}')">
+                        ✓ Confirm Request
+                    </button>
+                    <button class="flex-1 bg-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-400 transition font-semibold" onclick="closeRequestModal()">
+                        Cancel
                     </button>
                 </div>
             `;
-            document.getElementById('ngo-modal').style.display = 'block';
+            document.getElementById('request-modal').style.display = 'block';
         }
         
-        function closeNgoModal() {
-            document.getElementById('ngo-modal').style.display = 'none';
+        function closeRequestModal() {
+            document.getElementById('request-modal').style.display = 'none';
         }
 
-        // Accept NGO and move to accepted section
-        function acceptNgoBackend(ngoId, ngoName) {
+        // Confirm request and move NGO to requested section
+        function confirmRequest(ngoId, ngoName) {
             fetch('/accept_ngo', {
                 method: 'POST',
                 headers: {
@@ -172,57 +258,151 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('NGO accepted! Assignment ID: ' + data.assignment_id);
-                    // Optionally, update UI as before
-                    acceptNgo(ngoId);
+                    // Move card from available to requested section
+                    moveCardToRequested(ngoId);
+                    closeRequestModal();
+                    alert('Request sent! The NGO will be notified.');
                 } else {
                     alert('Error: ' + (data.error || 'Unknown error'));
                 }
             })
             .catch(err => {
-                alert('AJAX error: ' + err);
+                alert('Error: ' + err);
             });
         }
 
-        // Keep the original acceptNgo for UI update
-        function acceptNgo(ngoId) {
+        function moveCardToRequested(ngoId) {
             const availableGrid = document.getElementById('available-ngos-grid');
-            const acceptedGrid = document.getElementById('accepted-ngos-grid');
+            const requestedGrid = document.getElementById('requested-ngos-grid');
             const card = availableGrid.querySelector('.ngo-card[data-id="' + ngoId + '"]');
 
-            if (!card || !acceptedGrid) return;
+            if (!card || !requestedGrid) return;
+
+            // Remove "no requested" placeholder
+            const noRequested = document.getElementById('no-requested-ngos');
+            if (noRequested) noRequested.remove();
 
             const clone = card.cloneNode(true);
-
-            // Update badge to "Accepted"
+            
+            // Update styling
+            clone.classList.remove('border-gray-200');
+            clone.classList.add('border-yellow-300', 'border-2');
+            
+            // Update badge
             const badge = clone.querySelector('.status-badge');
             if (badge) {
                 badge.classList.remove('status-vacant');
-                badge.classList.add('status-occupied');
-                badge.textContent = 'Accepted';
+                badge.classList.add('bg-yellow-500', 'text-white', 'px-2', 'py-1', 'rounded');
+                badge.textContent = 'Pending';
             }
 
-            // Update button to "View Details"
+            // Remove distance/eta badges from requested card
+            const distBadge = clone.querySelector('.distance-badge');
+            const etaBadge = clone.querySelector('.eta-badge');
+            if (distBadge) distBadge.parentElement.remove();
+
+            // Update button
             const btn = clone.querySelector('button');
             if (btn) {
                 btn.textContent = 'View Details';
-                btn.classList.remove('bg-sky-600');
+                btn.classList.remove('bg-sky-600', 'hover:bg-sky-700');
+                btn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+                btn.setAttribute('onclick', 'viewRequestedNgoDetails(' + ngoId + ')');
+            }
+
+            requestedGrid.prepend(clone);
+            card.remove();
+        }
+
+        function moveCardToAccepted(ngoId) {
+            const requestedGrid = document.getElementById('requested-ngos-grid');
+            const acceptedGrid = document.getElementById('accepted-ngos-grid');
+            const card = requestedGrid.querySelector('.ngo-card[data-id="' + ngoId + '"]');
+
+            if (!card || !acceptedGrid) return;
+
+            // Remove "no accepted" placeholder
+            const noAccepted = document.getElementById('no-accepted-ngos');
+            if (noAccepted) noAccepted.remove();
+
+            const clone = card.cloneNode(true);
+            
+            // Update styling
+            clone.classList.remove('border-yellow-300');
+            clone.classList.add('border-green-300', 'border-2');
+            
+            // Update badge
+            const badge = clone.querySelector('.status-badge');
+            if (badge) {
+                badge.classList.remove('bg-yellow-500');
+                badge.classList.add('bg-green-500');
+                badge.textContent = 'Accepted';
+            }
+
+            // Update button
+            const btn = clone.querySelector('button');
+            if (btn) {
+                btn.textContent = 'View Progress';
+                btn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
                 btn.classList.add('bg-green-600', 'hover:bg-green-700');
                 btn.setAttribute('onclick', 'viewAcceptedNgoDetails(' + ngoId + ')');
             }
 
             acceptedGrid.prepend(clone);
             card.remove();
+        }
+        
+        function viewRequestedNgoDetails(ngoId) {
+            window.location.href = '/progress';
+        }
+        
+        function viewAcceptedNgoDetails(ngoId) {
+            window.location.href = '/progress';
+        }
 
-            closeNgoModal();
+        // Calculate distance and ETA for each NGO
+        async function calculateDistances() {
+            const cards = document.querySelectorAll('#available-ngos-grid .ngo-card');
+            const donorLat = 13.0827; // Default Chennai location (can be updated with actual donor location)
+            const donorLon = 80.2707;
+            
+            for (const card of cards) {
+                const ngoId = card.dataset.id;
+                const ngoLat = parseFloat(card.dataset.lat) || 13.0827;
+                const ngoLon = parseFloat(card.dataset.lon) || 80.2707;
+                
+                try {
+                    const response = await fetch(`/get_distance?donor_lat=${donorLat}&donor_lon=${donorLon}&ngo_lat=${ngoLat}&ngo_lon=${ngoLon}`);
+                    const data = await response.json();
+                    
+                    const distanceEl = document.getElementById('distance-' + ngoId);
+                    const etaEl = document.getElementById('eta-' + ngoId);
+                    
+                    if (data.success) {
+                        const distance = data.distance_km;
+                        distanceEl.textContent = '📍 ' + distance.toFixed(1) + ' km';
+                        
+                        // Calculate ETA assuming 30 km/h average speed
+                        const etaMinutes = Math.ceil((distance / 30) * 60);
+                        etaEl.textContent = '🕐 ~' + etaMinutes + ' min';
+                    }
+                } catch (error) {
+                    console.error('Error calculating distance for NGO ' + ngoId + ':', error);
+                }
+            }
         }
         
         // Close modal when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('ngo-modal');
+            const modal = document.getElementById('request-modal');
             if (event.target === modal) {
-                closeNgoModal();
+                closeRequestModal();
             }
         };
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            calculateDistances();
+        });
     </script>
 {% endblock %}

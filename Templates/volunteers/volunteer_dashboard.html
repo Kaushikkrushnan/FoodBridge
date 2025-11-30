@@ -1,5 +1,18 @@
 {% extends 'base.html' %}
 {% block title %}Volunteer Dashboard{% endblock %}
+{% block head %}
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+    </style>
+{% endblock %}
 {% block content %}
     <div class="container mx-auto py-8">
         <h1 class="text-4xl font-bold mb-8 text-center">Volunteer Dashboard</h1>
@@ -10,13 +23,30 @@
             <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">Live Progress Tracking</a>
         </nav>
         
-        <!-- Assigned Requests Section -->
+        <!-- Map Section -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Location Map</h2>
+            <div id="map"></div>
+        </div>
+        
+        <!-- Available Requests Section (Step 2: Accept Request) -->
         <div class="mb-12">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">Assigned Deliveries</h2>
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Available Requests</h2>
+            <p class="text-gray-600 mb-4">Click "Accept Request" to take on a delivery task.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="available-requests-grid">
+                <div class="col-span-full text-center py-6">
+                    <p class="text-gray-500">Loading available requests...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Assigned Requests Section (Step 3: Start Pickup, Step 5: Mark Delivered) -->
+        <div class="mb-12">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">My Assigned Deliveries</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="assigned-requests-grid">
                 {% if assigned_requests %}
                     {% for req in assigned_requests %}
-                    <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                    <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200" data-request-id="{{ req.id }}">
                         <h3 class="text-2xl font-semibold mb-2">{{ req.donor_name or 'Anonymous Donor' }}</h3>
                         <p><strong>Food Type:</strong> {{ req.food_type or 'N/A' }}</p>
                         <p><strong>Quantity:</strong> {{ req.quantity or 'N/A' }}</p>
@@ -30,16 +60,18 @@
                             {% elif req.status == 'in_transit' %}bg-purple-100 text-purple-800
                             {% elif req.status == 'delivered' %}bg-green-100 text-green-800
                             {% else %}bg-gray-100 text-gray-800{% endif %}">
-                            {{ req.status|title }}
+                            {{ req.status|title if req.status else 'Pending' }}
                         </span>
                         {% if req.status != 'delivered' %}
                         <div class="mt-4 space-y-2">
                             {% if req.status == 'assigned' %}
-                            <button class="btn w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition" onclick="updateStatus({{ req.id }}, 'collected')">Mark as Collected</button>
-                            {% elif req.status == 'collected' %}
-                            <button class="btn w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition" onclick="updateStatus({{ req.id }}, 'in_transit')">Start Delivery</button>
-                            {% elif req.status == 'in_transit' %}
-                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="updateStatus({{ req.id }}, 'delivered')">Complete Delivery</button>
+                            <button class="btn w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition" onclick="startPickup({{ req.id }})">
+                                🚗 Start Pickup
+                            </button>
+                            {% elif req.status == 'in_transit' or req.status == 'collected' %}
+                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="markDelivered({{ req.id }})">
+                                ✅ Mark Delivered
+                            </button>
                             {% endif %}
                         </div>
                         {% endif %}
@@ -80,27 +112,243 @@
         </div>
     </div>
     
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        function updateStatus(requestId, newStatus) {
-            fetch('/update_delivery_status', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ request_id: requestId, status: newStatus })
-            })
-            .then(response => response.json())
-            .then(data => {
+        // Initialize map
+        let map;
+        let volunteerMarker;
+        let locationWatchId;
+        
+        function initMap() {
+            map = L.map('map').setView([13.0827, 80.2707], 12);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Try to get current location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    map.setView([lat, lon], 14);
+                    
+                    volunteerMarker = L.marker([lat, lon]).addTo(map)
+                        .bindPopup('Your Location').openPopup();
+                    
+                    // Update location on server
+                    updateLocation(lat, lon);
+                }, function(error) {
+                    console.log('Geolocation error:', error);
+                });
+            }
+        }
+        
+        // Load available requests
+        async function loadAvailableRequests() {
+            try {
+                const response = await fetch('/get_available_requests');
+                const data = await response.json();
+                
+                const grid = document.getElementById('available-requests-grid');
+                
+                if (data.success && data.requests.length > 0) {
+                    grid.innerHTML = data.requests.map(req => `
+                        <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                            <h3 class="text-2xl font-semibold mb-2">${req.food_donor_name || 'Anonymous Donor'}</h3>
+                            <p><strong>NGO:</strong> ${req.ngo_name || 'N/A'}</p>
+                            <p><strong>Requested:</strong> ${req.request_time || 'N/A'}</p>
+                            <span class="inline-block mt-2 px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
+                                Needs Volunteer
+                            </span>
+                            <div class="mt-4">
+                                <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="acceptRequest(${req.id})">
+                                    ✋ Accept Request
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    grid.innerHTML = '<div class="col-span-full text-center py-12"><p class="text-gray-500 text-lg">No available requests at the moment.</p></div>';
+                }
+            } catch (error) {
+                console.error('Error loading requests:', error);
+            }
+        }
+        
+        // Accept a request (Step 2)
+        async function acceptRequest(requestId) {
+            try {
+                const response = await fetch('/accept_request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ request_id: requestId })
+                });
+                const data = await response.json();
+                
                 if (data.success) {
-                    alert('Status updated to ' + newStatus);
+                    alert('Request accepted! You can now start the pickup.');
                     location.reload();
                 } else {
-                    alert('Error: ' + (data.error || 'Unknown error'));
+                    alert('Error: ' + (data.message || 'Unknown error'));
                 }
-            })
-            .catch(err => {
-                alert('AJAX error: ' + err);
-            });
+            } catch (error) {
+                alert('Error accepting request: ' + error);
+            }
         }
+        
+        // Start pickup (Step 3) - begins live tracking
+        async function startPickup(requestId) {
+            try {
+                let lat = null, lon = null;
+                
+                // Try to get current location
+                if (navigator.geolocation) {
+                    try {
+                        const position = await new Promise((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(resolve, reject, {timeout: 5000});
+                        });
+                        lat = position.coords.latitude;
+                        lon = position.coords.longitude;
+                    } catch (e) {
+                        console.log('Could not get location:', e);
+                        // Inform user about location access
+                        if (e.code === 1) {
+                            alert('Location access denied. Live tracking will be limited. Please enable location access for better tracking.');
+                        } else {
+                            alert('Could not get your location. Live tracking may be limited.');
+                        }
+                    }
+                } else {
+                    alert('Geolocation is not supported by your browser. Live tracking will be limited.');
+                }
+                
+                const response = await fetch('/start_pickup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ request_id: requestId, lat: lat, lon: lon })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Pickup started! Live tracking is now active. NGO can see your location.');
+                    
+                    // Start continuous location tracking
+                    startLocationTracking();
+                    
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.message || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error starting pickup: ' + error);
+            }
+        }
+        
+        // Mark as delivered (Step 5)
+        async function markDelivered(requestId) {
+            try {
+                const response = await fetch('/mark_delivered', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ request_id: requestId })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Delivery completed! Thank you for your service.');
+                    
+                    // Stop location tracking
+                    stopLocationTracking();
+                    
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.message || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error marking delivery: ' + error);
+            }
+        }
+        
+        // Update location on server
+        async function updateLocation(lat, lon) {
+            try {
+                await fetch('/update_location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lat: lat, lon: lon })
+                });
+            } catch (error) {
+                console.error('Error updating location:', error);
+            }
+        }
+        
+        // Start continuous location tracking
+        function startLocationTracking() {
+            if (navigator.geolocation && !locationWatchId) {
+                locationWatchId = navigator.geolocation.watchPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        
+                        // Update marker on map
+                        if (volunteerMarker) {
+                            volunteerMarker.setLatLng([lat, lon]);
+                        } else {
+                            volunteerMarker = L.marker([lat, lon]).addTo(map);
+                        }
+                        
+                        // Update location on server
+                        updateLocation(lat, lon);
+                    },
+                    function(error) {
+                        console.log('Location tracking error:', error);
+                    },
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                );
+            }
+        }
+        
+        // Stop location tracking
+        function stopLocationTracking() {
+            if (locationWatchId) {
+                navigator.geolocation.clearWatch(locationWatchId);
+                locationWatchId = null;
+            }
+        }
+        
+        // Legacy function for backward compatibility
+        function updateStatus(requestId, newStatus) {
+            if (newStatus === 'in_transit') {
+                startPickup(requestId);
+            } else if (newStatus === 'delivered') {
+                markDelivered(requestId);
+            } else {
+                fetch('/update_delivery_status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ request_id: requestId, status: newStatus })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Status updated to ' + newStatus);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(err => {
+                    alert('AJAX error: ' + err);
+                });
+            }
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            loadAvailableRequests();
+        });
     </script>
 {% endblock %}

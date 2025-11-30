@@ -1,14 +1,125 @@
 {% extends 'base.html' %}
 {% block title %}NGO Dashboard{% endblock %}
+{% block head %}
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        .tracking-info {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        .pulse-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+        .user-info-box {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background-color: #4f46e5;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+            max-width: 280px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .user-info-box .user-type {
+            font-size: 12px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .user-info-box .user-name {
+            font-size: 16px;
+            margin-top: 4px;
+        }
+        .progress-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+        .progress-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .progress-step.completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .progress-step.current {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .progress-step.pending {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+        .step-icon {
+            font-size: 18px;
+        }
+    </style>
+{% endblock %}
 {% block content %}
+    <!-- User Info Box -->
+    {% if user_name %}
+    <div class="user-info-box">
+        <div class="user-type">{{ user_role or 'NGO' }}</div>
+        <div class="user-name">{{ user_name }}</div>
+    </div>
+    {% endif %}
+    
     <div class="container mx-auto py-8">
         <h1 class="text-4xl font-bold mb-8 text-center">NGO Dashboard</h1>
+        
+        <!-- Map Section for Live Tracking (Optional Toggle) -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">
+                    <span class="pulse-dot mr-2"></span> Live Volunteer Tracking
+                </h2>
+                <button class="text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300" onclick="toggleMap()">Toggle Map</button>
+            </div>
+            <div id="map-container">
+                <div id="map"></div>
+                <p class="text-sm text-gray-500 mt-2">Map updates automatically every 10 seconds</p>
+            </div>
+        </div>
+        
         <div class="mb-12">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">Available Food Donations</h2>
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Requested Food Donations</h2>
+            <p class="text-gray-600 mb-4">Food donors who have requested your NGO to pick up their donations</p>
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="available-donations-grid">
                 {% if available_donations %}
                     {% for donation in available_donations %}
-                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
+                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-yellow-300"
                          data-id="{{ donation.id }}"
                          data-donor-name="{{ donation.food_donor_name or donation.donor_name or '' }}"
                          data-food-type="{{ donation.food_type or '' }}"
@@ -23,25 +134,26 @@
                         <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
                         <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
                         <p><strong>Pickup Time:</strong> {{ donation.pickup_time or 'N/A' }}</p>
-                        <span class="status-badge status-available">Available</span>
+                        <span class="status-badge bg-yellow-500 text-white px-2 py-1 rounded mt-2 inline-block">Requested</span>
                         <div class="mt-4">
-                            <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="acceptDonationBackend({{ donation.id }})">Review & Accept</button>
+                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="acceptDonationBackend({{ donation.id }})">Accept Donation</button>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
                     <div class="col-span-full text-center py-12">
-                        <p class="text-gray-500 text-lg">No available food donations.</p>
+                        <p class="text-gray-500 text-lg">No pending food donation requests.</p>
                     </div>
                 {% endif %}
             </div>
         </div>
+        
         <div class="mb-12">
             <h2 class="text-3xl font-bold text-gray-800 mb-6">Accepted Food Donations</h2>
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="accepted-donations-grid">
                 {% if accepted_donations %}
                     {% for donation in accepted_donations %}
-                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
+                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-green-300"
                          data-id="{{ donation.id }}"
                          data-donor-name="{{ donation.food_donor_name or donation.donor_name or '' }}"
                          data-food-type="{{ donation.food_type or '' }}"
@@ -56,9 +168,34 @@
                         <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
                         <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
                         <p><strong>Pickup Time:</strong> {{ donation.pickup_time or 'N/A' }}</p>
-                        <span class="status-badge status-active">Accepted</span>
-                        <div class="mt-4">
-                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewAcceptedDonation({{ donation.id }})">View Details</button>
+                        <span class="status-badge bg-green-500 text-white px-2 py-1 rounded mt-2 inline-block">Accepted</span>
+                        
+                        <!-- Progress Steps -->
+                        <div class="progress-steps" id="progress-{{ donation.id }}">
+                            <div class="progress-step pending" id="step1-{{ donation.id }}">
+                                <span class="step-icon">📦</span>
+                                <span>1. Food Packed & Ready (Donor)</span>
+                            </div>
+                            <div class="progress-step pending" id="step2-{{ donation.id }}">
+                                <span class="step-icon">🚗</span>
+                                <span>2. Food Collected (Volunteer)</span>
+                            </div>
+                            <div class="progress-step pending" id="step3-{{ donation.id }}">
+                                <span class="step-icon">📍</span>
+                                <span>3. Volunteer Near NGO</span>
+                            </div>
+                            <div class="progress-step pending" id="step4-{{ donation.id }}">
+                                <span class="step-icon">✅</span>
+                                <span>4. Delivered (NGO confirms)</span>
+                                <button class="ml-auto text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700" onclick="confirmDelivery({{ donation.id }})">Confirm</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Live Tracking Info -->
+                        <div class="tracking-info" id="tracking-{{ donation.id }}">
+                            <p><strong>Status:</strong> <span id="status-{{ donation.id }}">Loading...</span></p>
+                            <p><strong>Volunteer:</strong> <span id="volunteer-{{ donation.id }}">Waiting for volunteer...</span></p>
+                            <p><strong>ETA:</strong> <span id="eta-{{ donation.id }}">--</span></p>
                         </div>
                     </div>
                     {% endfor %}
@@ -69,9 +206,10 @@
                 {% endif %}
             </div>
         </div>
+        
         <!-- Request Details Modal -->
-        <div id="request-modal" class="modal" style="display:none;">
-            <div class="modal-content bg-white rounded-lg shadow-2xl">
+        <div id="request-modal" class="modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
+            <div class="modal-content bg-white rounded-lg shadow-2xl" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 2rem; max-width: 500px; width: 90%;">
                 <span class="modal-close absolute top-4 right-5 text-3xl font-bold text-gray-500 hover:text-red-600 cursor-pointer" onclick="closeRequestModal()">&times;</span>
                 <div id="request-modal-body">
                     <!-- Content will be populated by JavaScript -->
@@ -79,7 +217,140 @@
             </div>
         </div>
     </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Initialize map
+        let map;
+        let volunteerMarkers = {};
+        let mapVisible = true;
+        
+        function toggleMap() {
+            const container = document.getElementById('map-container');
+            mapVisible = !mapVisible;
+            container.style.display = mapVisible ? 'block' : 'none';
+        }
+        
+        function initMap() {
+            map = L.map('map').setView([13.0827, 80.2707], 12);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+        
+        // Update tracking info for accepted donations
+        async function updateTrackingInfo() {
+            // Using tojson filter which properly escapes data for JavaScript
+            const acceptedDonations = {{ accepted_donations|tojson|safe if accepted_donations else '[]' }};
+            
+            for (const donation of acceptedDonations) {
+                try {
+                    const response = await fetch('/get_request_status/' + donation.id);
+                    const data = await response.json();
+                    
+                    if (data.success && data.request) {
+                        const req = data.request;
+                        
+                        // Update status
+                        const statusEl = document.getElementById('status-' + donation.id);
+                        if (statusEl) {
+                            let statusText = req.status || 'Pending';
+                            let statusClass = '';
+                            
+                            if (req.status === 'in_transit') {
+                                statusText = '🚗 In Transit';
+                                statusClass = 'text-purple-600 font-bold';
+                            } else if (req.status === 'assigned') {
+                                statusText = '📋 Assigned - Waiting for pickup';
+                                statusClass = 'text-yellow-600';
+                            } else if (req.status === 'delivered') {
+                                statusText = '✅ Delivered';
+                                statusClass = 'text-green-600 font-bold';
+                            }
+                            
+                            statusEl.textContent = statusText;
+                            statusEl.className = statusClass;
+                        }
+                        
+                        // Update volunteer info
+                        const volunteerEl = document.getElementById('volunteer-' + donation.id);
+                        if (volunteerEl && req.volunteer_name) {
+                            volunteerEl.textContent = req.volunteer_name + (req.volunteer_contact ? ' (' + req.volunteer_contact + ')' : '');
+                        }
+                        
+                        // Update ETA
+                        const etaEl = document.getElementById('eta-' + donation.id);
+                        if (etaEl) {
+                            if (req.status === 'in_transit' && req.eta_minutes) {
+                                etaEl.textContent = req.eta_minutes + ' minutes';
+                            } else if (req.status === 'delivered') {
+                                etaEl.textContent = 'Delivered!';
+                            } else {
+                                etaEl.textContent = '--';
+                            }
+                        }
+                        
+                        // Update progress steps
+                        updateProgressSteps(donation.id, req);
+                        
+                        // Update map marker for volunteer
+                        if (req.volunteer_lat && req.volunteer_lon) {
+                            if (volunteerMarkers[donation.id]) {
+                                volunteerMarkers[donation.id].setLatLng([req.volunteer_lat, req.volunteer_lon]);
+                            } else {
+                                const volunteerIcon = L.divIcon({
+                                    className: 'volunteer-marker',
+                                    html: '<div style="background:#22c55e;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>',
+                                    iconSize: [20, 20],
+                                    iconAnchor: [10, 10]
+                                });
+                                
+                                volunteerMarkers[donation.id] = L.marker([req.volunteer_lat, req.volunteer_lon], {icon: volunteerIcon})
+                                    .addTo(map)
+                                    .bindPopup('<strong>' + (req.volunteer_name || 'Volunteer') + '</strong><br>Status: ' + (req.status || 'Active'));
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error updating tracking for donation ' + donation.id + ':', error);
+                }
+            }
+        }
+        
+        function updateProgressSteps(donationId, req) {
+            const step1 = document.getElementById('step1-' + donationId);
+            const step2 = document.getElementById('step2-' + donationId);
+            const step3 = document.getElementById('step3-' + donationId);
+            const step4 = document.getElementById('step4-' + donationId);
+            
+            // Reset all steps
+            [step1, step2, step3, step4].forEach(step => {
+                if (step) {
+                    step.classList.remove('completed', 'current');
+                    step.classList.add('pending');
+                }
+            });
+            
+            // Update based on status
+            if (req.food_ready_at) {
+                if (step1) { step1.classList.remove('pending'); step1.classList.add('completed'); }
+            }
+            if (req.status === 'assigned' || req.status === 'in_transit' || req.status === 'delivered') {
+                if (step1) { step1.classList.remove('pending'); step1.classList.add('completed'); }
+            }
+            if (req.collected_at || req.status === 'in_transit' || req.status === 'delivered') {
+                if (step2) { step2.classList.remove('pending'); step2.classList.add('completed'); }
+            }
+            if (req.near_ngo_at || req.status === 'delivered') {
+                if (step3) { step3.classList.remove('pending'); step3.classList.add('completed'); }
+            }
+            if (req.status === 'delivered') {
+                if (step4) { step4.classList.remove('pending'); step4.classList.add('completed'); }
+            }
+        }
+        
         function getDonationFromDom(donationId) {
             const card = document.querySelector('.donation-card[data-id="' + donationId + '"]');
             if (!card) return null;
@@ -116,30 +387,100 @@
                     const acceptedGrid = document.getElementById('accepted-donations-grid');
                     const card = availableGrid.querySelector('.donation-card[data-id="' + requestId + '"]');
                     if (!card || !acceptedGrid) return;
+                    
                     const clone = card.cloneNode(true);
+                    
+                    // Update border color
+                    clone.classList.remove('border-yellow-300');
+                    clone.classList.add('border-green-300');
+                    
+                    // Update badge
                     const badge = clone.querySelector('.status-badge');
                     if (badge) {
-                        badge.classList.remove('status-available');
-                        badge.classList.add('status-active');
+                        badge.classList.remove('bg-yellow-500');
+                        badge.classList.add('bg-green-500');
                         badge.textContent = 'Accepted';
                     }
+                    
+                    // Replace button with progress tracking
                     const btn = clone.querySelector('button');
-                    if (btn) {
-                        btn.textContent = 'View Details';
-                        btn.classList.remove('bg-sky-600');
-                        btn.classList.add('bg-green-600', 'hover:bg-green-700');
-                        btn.setAttribute('onclick', 'viewAcceptedDonation(' + requestId + ')');
-                    }
+                    if (btn) btn.remove();
+                    
+                    // Add progress steps
+                    const progressHtml = `
+                        <div class="progress-steps" id="progress-${requestId}">
+                            <div class="progress-step pending" id="step1-${requestId}">
+                                <span class="step-icon">📦</span>
+                                <span>1. Food Packed & Ready (Donor)</span>
+                            </div>
+                            <div class="progress-step pending" id="step2-${requestId}">
+                                <span class="step-icon">🚗</span>
+                                <span>2. Food Collected (Volunteer)</span>
+                            </div>
+                            <div class="progress-step pending" id="step3-${requestId}">
+                                <span class="step-icon">📍</span>
+                                <span>3. Volunteer Near NGO</span>
+                            </div>
+                            <div class="progress-step pending" id="step4-${requestId}">
+                                <span class="step-icon">✅</span>
+                                <span>4. Delivered (NGO confirms)</span>
+                                <button class="ml-auto text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700" onclick="confirmDelivery(${requestId})">Confirm</button>
+                            </div>
+                        </div>
+                        <div class="tracking-info" id="tracking-${requestId}">
+                            <p><strong>Status:</strong> <span id="status-${requestId}">Accepted</span></p>
+                            <p><strong>Volunteer:</strong> <span id="volunteer-${requestId}">Waiting for volunteer...</span></p>
+                            <p><strong>ETA:</strong> <span id="eta-${requestId}">--</span></p>
+                        </div>
+                    `;
+                    clone.insertAdjacentHTML('beforeend', progressHtml);
+                    
                     acceptedGrid.prepend(clone);
                     card.remove();
                     closeRequestModal();
-                    alert('Donation accepted!');
+                    alert('Donation accepted! The donor will be notified.');
                 } else {
                     alert('Error: ' + (data.error || 'Unknown error'));
                 }
             })
             .catch(err => {
                 alert('AJAX error: ' + err);
+            });
+        }
+
+        function confirmDelivery(requestId) {
+            if (!confirm('Confirm that this food donation has been delivered?')) return;
+            
+            fetch('/update_delivery_status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ request_id: requestId, status: 'delivered' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update UI
+                    const step4 = document.getElementById('step4-' + requestId);
+                    if (step4) {
+                        step4.classList.remove('pending');
+                        step4.classList.add('completed');
+                        const btn = step4.querySelector('button');
+                        if (btn) btn.remove();
+                    }
+                    const statusEl = document.getElementById('status-' + requestId);
+                    if (statusEl) {
+                        statusEl.textContent = '✅ Delivered';
+                        statusEl.className = 'text-green-600 font-bold';
+                    }
+                    alert('Delivery confirmed! Thank you.');
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('Error: ' + err);
             });
         }
 
@@ -188,5 +529,14 @@
                 closeRequestModal();
             }
         }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            updateTrackingInfo();
+            
+            // Update tracking info every 10 seconds
+            setInterval(updateTrackingInfo, 10000);
+        });
     </script>
 {% endblock %}
