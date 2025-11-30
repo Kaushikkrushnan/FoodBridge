@@ -114,15 +114,15 @@ def donor_dashboard():
     auth_conn = get_auth_db_connection()
     app_conn = get_db_connection()
 
-    # Get all users from auth.db
-    all_ngos = auth_conn.execute('''
-        SELECT id, name, email, registration_number, verified
-        FROM users
+    # Get all NGOs from app.db ngos table (which has location data)
+    all_ngos = app_conn.execute('''
+        SELECT id, name, email, registration_number, verified, lat, lon, address
+        FROM ngos
+        WHERE verified = 1 OR id IS NOT NULL
         ORDER BY name
     ''').fetchall()
 
-    # For now, show all NGOs from auth.db as available
-    # TODO: Implement proper categorization based on food_requests status
+    # Convert to list of dicts with proper field names for the template
     available_ngos = [dict(ngo) for ngo in all_ngos]
     requested_ngos = []
     accepted_ngos = []
