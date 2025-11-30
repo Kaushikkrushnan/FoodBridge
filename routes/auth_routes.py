@@ -12,6 +12,19 @@ from database.session_manager import create_session, deactivate_session, get_use
 
 auth_bp = Blueprint('auth', __name__)
 
+
+def verify_firebase_token(id_token, check_revoked=False):
+    """
+    Verify Firebase ID token with backward compatibility.
+    Tries with clock_skew_seconds first, falls back to without it for older versions.
+    """
+    try:
+        # Try with clock_skew_seconds (firebase-admin >= 6.0)
+        return firebase_auth.verify_id_token(id_token, check_revoked=check_revoked, clock_skew_seconds=60)
+    except TypeError:
+        # Fall back for older firebase-admin versions that don't support clock_skew_seconds
+        return firebase_auth.verify_id_token(id_token, check_revoked=check_revoked)
+
 @auth_bp.route('/food_donor_register', methods=['GET', 'POST'])
 def food_donor_register():
     if request.method == 'GET':
@@ -189,7 +202,7 @@ def register_ngo():
                     return jsonify({'success': False, 'message': 'Invalid Firebase token: Token is empty or invalid format'}), 401
 
                 # Allow up to 60 seconds clock skew to handle time differences between client and server
-                decoded_token = firebase_auth.verify_id_token(id_token, check_revoked=False, clock_skew_seconds=60)
+                decoded_token = verify_firebase_token(id_token, check_revoked=False)
                 firebase_uid = decoded_token['uid']
                 firebase_email = decoded_token.get('email')
         except ValueError as e:
@@ -296,7 +309,7 @@ def login_ngo():
                     print("[DEBUG] Invalid Firebase token format")
                     return jsonify({'success': False, 'message': 'Invalid Firebase token: Token is empty or invalid format'}), 401
 
-                decoded_token = firebase_auth.verify_id_token(id_token, check_revoked=False, clock_skew_seconds=60)
+                decoded_token = verify_firebase_token(id_token, check_revoked=False)
                 firebase_uid = decoded_token['uid']
                 firebase_email = decoded_token.get('email')
                 print(f"[DEBUG] Decoded token: {decoded_token}")
@@ -560,7 +573,7 @@ def register_volunteer():
                     return jsonify({'success': False, 'message': 'Invalid Firebase token: Token is empty or invalid format'}), 401
 
                 # Allow up to 60 seconds clock skew to handle time differences between client and server
-                decoded_token = firebase_auth.verify_id_token(id_token, check_revoked=False, clock_skew_seconds=60)
+                decoded_token = verify_firebase_token(id_token, check_revoked=False)
                 firebase_uid = decoded_token['uid']
                 firebase_email = decoded_token.get('email')
         except ValueError as e:
@@ -655,7 +668,7 @@ def login_volunteer():
                 if not id_token or not isinstance(id_token, str) or len(id_token) == 0:
                     return jsonify({'success': False, 'message': 'Invalid Firebase token: Token is empty or invalid format'}), 401
 
-                decoded_token = firebase_auth.verify_id_token(id_token, check_revoked=False, clock_skew_seconds=60)
+                decoded_token = verify_firebase_token(id_token, check_revoked=False)
                 firebase_uid = decoded_token['uid']
                 firebase_email = decoded_token.get('email')
         except ValueError as e:
