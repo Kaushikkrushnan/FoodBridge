@@ -276,13 +276,14 @@ def assign_nearest_volunteer():
 def get_available_requests():
     """
     Get all available food requests that need volunteers.
-    Returns requests that are pending acceptance by a volunteer.
+    Returns requests that have been accepted by NGO but not yet assigned to a volunteer.
     """
     try:
         from database.assignment_db import get_assignment_db_connection
         conn = get_assignment_db_connection()
         
-        # Get requests that have been accepted by NGO but not yet accepted by volunteer
+        # Get requests that have been accepted by NGO but not yet assigned to a volunteer
+        # Status can be 'accepted' (NGO accepted) or 'pending' (initial state after NGO acceptance)
         requests = conn.execute('''
             SELECT fdr.id, fdr.food_donor_id, fdr.food_donor_name, fdr.ngo_id, fdr.ngo_name,
                    fdr.status, fdr.ngo_acceptance_status, fdr.request_time

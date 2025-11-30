@@ -147,7 +147,8 @@
         
         // Update tracking info for accepted donations
         async function updateTrackingInfo() {
-            const acceptedDonations = {{ accepted_donations|tojson if accepted_donations else '[]' }};
+            // Using tojson filter which properly escapes data for JavaScript
+            const acceptedDonations = {{ accepted_donations|tojson|safe if accepted_donations else '[]' }};
             
             for (const donation of acceptedDonations) {
                 try {

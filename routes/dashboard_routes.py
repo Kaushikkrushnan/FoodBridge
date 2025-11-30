@@ -575,9 +575,12 @@ def get_distance():
             }), 200
         
         # Calculate actual distance using haversine formula
+        # Note: This function is also defined in routes/volunteer_routes.py and database/allocate_volunteer.py
+        # TODO: Consider creating a shared utility module for common functions
         import math
         
         def haversine(lat1, lon1, lat2, lon2):
+            """Calculate the great circle distance between two points in kilometers."""
             lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
             dlat = lat2 - lat1
             dlon = lon2 - lon1

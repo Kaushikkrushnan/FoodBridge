@@ -213,7 +213,15 @@
                         lon = position.coords.longitude;
                     } catch (e) {
                         console.log('Could not get location:', e);
+                        // Inform user about location access
+                        if (e.code === 1) {
+                            alert('Location access denied. Live tracking will be limited. Please enable location access for better tracking.');
+                        } else {
+                            alert('Could not get your location. Live tracking may be limited.');
+                        }
                     }
+                } else {
+                    alert('Geolocation is not supported by your browser. Live tracking will be limited.');
                 }
                 
                 const response = await fetch('/start_pickup', {
