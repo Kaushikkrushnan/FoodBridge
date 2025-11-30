@@ -16,14 +16,23 @@ auth_bp = Blueprint('auth', __name__)
 def verify_firebase_token(id_token, check_revoked=False):
     """
     Verify Firebase ID token with backward compatibility.
-    Tries with clock_skew_seconds first, falls back to without it for older versions.
+    First tries without clock_skew_seconds for maximum compatibility,
+    then tries with it if the first attempt fails with a token timing issue.
     """
     try:
-        # Try with clock_skew_seconds (firebase-admin >= 6.0)
-        return firebase_auth.verify_id_token(id_token, check_revoked=check_revoked, clock_skew_seconds=60)
-    except TypeError:
-        # Fall back for older firebase-admin versions that don't support clock_skew_seconds
+        # First try without clock_skew_seconds for maximum compatibility
         return firebase_auth.verify_id_token(id_token, check_revoked=check_revoked)
+    except Exception as e:
+        error_msg = str(e).lower()
+        # If the error is related to token timing (expired, not yet valid), 
+        # try again with clock_skew_seconds if available
+        if 'expired' in error_msg or 'not yet valid' in error_msg or 'time' in error_msg:
+            try:
+                return firebase_auth.verify_id_token(id_token, check_revoked=check_revoked, clock_skew_seconds=60)
+            except TypeError:
+                # clock_skew_seconds not supported in this version, re-raise original error
+                raise e
+        raise
 
 @auth_bp.route('/food_donor_register', methods=['GET', 'POST'])
 def food_donor_register():
