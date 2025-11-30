@@ -83,6 +83,39 @@ def init_db_route():
     except Exception as e:
         return "Error initializing database: " + str(e)
 
+
+@app.route('/test_ngo_login/<int:ngo_id>')
+def test_ngo_login(ngo_id):
+    """
+    Test route to simulate NGO login for development/testing.
+    Sets session variables to simulate being logged in as an NGO.
+    ONLY available in debug mode.
+    """
+    # Only allow in debug mode
+    if not app.debug:
+        return "This route is only available in debug mode", 403
+    
+    from db import get_db_connection
+    conn = get_db_connection()
+    ngo = conn.execute('SELECT id, name, email FROM ngos WHERE id = ?', (ngo_id,)).fetchone()
+    conn.close()
+    
+    if not ngo:
+        return f"NGO with ID {ngo_id} not found", 404
+    
+    # Set session variables
+    session['user_id'] = ngo['id']
+    session['app_ngo_id'] = ngo['id']
+    session['user_name'] = ngo['name']
+    session['user_email'] = ngo['email']
+    session['user_role'] = 'NGO'
+    session['user_type'] = 'NGO'
+    session['user_contact'] = ngo['email']
+    session['user_session_key'] = f"ngo_{ngo['id']}_{ngo['email']}"
+    session.permanent = True
+    
+    return f"Logged in as NGO: {ngo['name']} (ID: {ngo['id']}). <a href='/ngo_dashboard'>Go to NGO Dashboard</a>"
+
 if __name__ == '__main__':
     # Initialize all databases on startup
     from db import init_all_databases

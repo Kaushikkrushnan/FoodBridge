@@ -6,6 +6,28 @@
     <title>Food Donor Registration</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <!-- Leaflet CSS for map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #location-map {
+            height: 300px;
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .location-marker {
+            background-color: #ef4444;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4); }
+            50% { transform: scale(1.02); box-shadow: 0 6px 12px rgba(16, 185, 129, 0.6); }
+        }
+    </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
     <div class="bg-white p-8 rounded shadow-md w-full max-w-md">
@@ -14,10 +36,6 @@
             <div class="mb-4">
                 <label for="name" class="block text-gray-700 mb-2">Organization Name</label>
                 <input type="text" name="name" id="name" required class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-500" />
-            </div>
-            <div class="mb-4">
-                <label for="email" class="block text-gray-700 mb-2">Email</label>
-                <input type="email" name="email" id="email" required class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-500" />
             </div>
             <div class="mb-4">
                 <label for="phone" class="block text-gray-700 mb-2">Phone Number</label>
@@ -36,6 +54,51 @@
                 <textarea name="address" id="address" required rows="3" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-500"></textarea>
             </div>
             <div class="mb-4">
+                <label class="block text-gray-700 mb-2 font-semibold text-lg">📍 Your Location (Required)</label>
+                
+                <!-- Location input section - always visible -->
+                <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-300 mb-3 shadow-sm">
+                    <p class="text-blue-800 font-semibold text-base mb-3">🗺️ Set your location on the map using one of these options:</p>
+                    
+                    <!-- Option 1: Get Current Location Button -->
+                    <button type="button" id="get-location-btn" class="w-full bg-green-600 text-white px-4 py-4 rounded-lg hover:bg-green-700 transition text-lg font-bold mb-3 shadow-md flex items-center justify-center gap-2" style="animation: pulse 2s infinite;">
+                        <span style="font-size: 1.5rem;">📍</span> Get My Current Location (Click Here!)
+                    </button>
+                    
+                    <!-- Option 2: Manual coordinate inputs - always visible -->
+                    <div class="bg-white p-3 rounded border border-gray-200">
+                        <p class="text-gray-600 text-sm mb-2">Or enter coordinates manually:</p>
+                        <div class="flex gap-4">
+                            <div class="flex-1">
+                                <label class="text-xs text-gray-600 font-medium">Latitude</label>
+                                <input type="number" step="any" id="lat-input" placeholder="e.g. 13.0827" 
+                                       class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div class="flex-1">
+                                <label class="text-xs text-gray-600 font-medium">Longitude</label>
+                                <input type="number" step="any" id="lon-input" placeholder="e.g. 80.2707" 
+                                       class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Map container (if Leaflet loads) -->
+                <div id="map-container">
+                    <p class="text-sm text-gray-600 mb-2">Or click on the map below to set your location:</p>
+                    <div id="location-map"></div>
+                </div>
+                
+                <!-- Hidden fields for form submission -->
+                <input type="hidden" name="lat" id="lat" value="" />
+                <input type="hidden" name="lon" id="lon" value="" />
+                
+                <!-- Location status indicator -->
+                <p id="location-status" class="text-sm text-gray-500 mt-2 p-2 rounded bg-gray-100">
+                    ⚠️ Location not set yet. Please use one of the options above.
+                </p>
+            </div>
+            <div class="mb-4">
                 <label for="selected_ngos" class="block text-gray-700 mb-2">Select NGO to Donate Food</label>
                 <select name="selected_ngos" id="selected_ngos" required class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-500">
                     {% for ngo in ngos %}
@@ -50,5 +113,187 @@
         </form>
         <div id="message" class="mt-4 text-center text-red-600"></div>
     </div>
+    
+    <!-- Fallback function must be defined before Leaflet script -->
+    <script>
+        // Global error handler for Leaflet load failure
+        function handleMapLoadError() {
+            console.warn('Leaflet library failed to load - hiding map container');
+            document.addEventListener('DOMContentLoaded', function() {
+                hideMapContainer();
+            });
+        }
+    </script>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+            crossorigin="anonymous"
+            onerror="handleMapLoadError()"></script>
+    <script>
+        let map = null;
+        let marker = null;
+        let mapLoaded = false;
+        
+        // Hide map container when Leaflet fails to load
+        function hideMapContainer() {
+            const mapContainer = document.getElementById('map-container');
+            if (mapContainer) {
+                mapContainer.style.display = 'none';
+            }
+        }
+        
+        function updateLocationStatus() {
+            const lat = document.getElementById('lat').value;
+            const lon = document.getElementById('lon').value;
+            const status = document.getElementById('location-status');
+            if (lat && lon) {
+                status.innerHTML = `✅ <strong>Location set:</strong> Lat ${parseFloat(lat).toFixed(6)}, Lon ${parseFloat(lon).toFixed(6)}`;
+                status.classList.remove('text-gray-500', 'text-red-500', 'bg-gray-100', 'bg-red-100');
+                status.classList.add('text-green-700', 'bg-green-100');
+            } else {
+                status.innerHTML = '⚠️ Location not set yet. Please use one of the options above.';
+                status.classList.remove('text-green-700', 'text-red-500', 'bg-green-100', 'bg-red-100');
+                status.classList.add('text-gray-500', 'bg-gray-100');
+            }
+        }
+        
+        // Function to set location from any source
+        function setLocation(lat, lon) {
+            // Update hidden fields
+            document.getElementById('lat').value = lat;
+            document.getElementById('lon').value = lon;
+            
+            // Update visible inputs
+            const latInput = document.getElementById('lat-input');
+            const lonInput = document.getElementById('lon-input');
+            if (latInput) latInput.value = lat;
+            if (lonInput) lonInput.value = lon;
+            
+            updateLocationStatus();
+            
+            // Update or create marker if map is loaded
+            if (mapLoaded && map) {
+                try {
+                    if (marker) {
+                        marker.setLatLng([lat, lon]);
+                    } else {
+                        const locationIcon = L.divIcon({
+                            className: 'location-marker',
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        });
+                        marker = L.marker([lat, lon], {icon: locationIcon}).addTo(map);
+                    }
+                    map.setView([lat, lon], 15);
+                } catch (e) {
+                    console.warn('Could not update map marker:', e);
+                }
+            }
+        }
+        
+        // Initialize map if Leaflet is available
+        function initMap() {
+            try {
+                if (typeof L === 'undefined') {
+                    console.warn('Leaflet not available, hiding map container');
+                    hideMapContainer();
+                    return;
+                }
+                
+                // Initialize map centered on Chennai (default location)
+                map = L.map('location-map').setView([13.0827, 80.2707], 12);
+                
+                // Add OpenStreetMap tiles
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+                
+                // Custom marker icon
+                const locationIcon = L.divIcon({
+                    className: 'location-marker',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+                
+                // Click on map to set location
+                map.on('click', function(e) {
+                    setLocation(e.latlng.lat, e.latlng.lng);
+                });
+                
+                mapLoaded = true;
+                console.log('Map initialized successfully');
+                
+            } catch (error) {
+                console.error('Error initializing map:', error);
+                hideMapContainer();
+            }
+        }
+        
+        // Wait for DOM and initialize everything
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up manual input listeners
+            const latInput = document.getElementById('lat-input');
+            const lonInput = document.getElementById('lon-input');
+            
+            if (latInput) {
+                latInput.addEventListener('input', function() {
+                    document.getElementById('lat').value = this.value;
+                    updateLocationStatus();
+                });
+            }
+            
+            if (lonInput) {
+                lonInput.addEventListener('input', function() {
+                    document.getElementById('lon').value = this.value;
+                    updateLocationStatus();
+                });
+            }
+            
+            // Give Leaflet a moment to load, then initialize map
+            setTimeout(function() {
+                initMap();
+            }, 100);
+        });
+        
+        // Get current location button
+        document.getElementById('get-location-btn').addEventListener('click', function() {
+            const status = document.getElementById('location-status');
+            if (navigator.geolocation) {
+                status.innerHTML = '⏳ Getting your location...';
+                status.classList.remove('text-gray-500', 'text-green-700', 'text-red-500', 'bg-gray-100', 'bg-green-100', 'bg-red-100');
+                status.classList.add('text-blue-700', 'bg-blue-100');
+                
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        setLocation(position.coords.latitude, position.coords.longitude);
+                    },
+                    function(error) {
+                        status.innerHTML = '❌ Error getting location: ' + error.message + '. Please enter coordinates manually.';
+                        status.classList.remove('text-gray-500', 'text-green-700', 'text-blue-700', 'bg-gray-100', 'bg-green-100', 'bg-blue-100');
+                        status.classList.add('text-red-500', 'bg-red-100');
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+                );
+            } else {
+                status.innerHTML = '❌ Geolocation is not supported by your browser. Please enter coordinates manually.';
+                status.classList.remove('text-gray-500', 'text-green-700', 'text-blue-700', 'bg-gray-100', 'bg-green-100', 'bg-blue-100');
+                status.classList.add('text-red-500', 'bg-red-100');
+            }
+        });
+        
+        // Form validation
+        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+            const lat = document.getElementById('lat').value;
+            const lon = document.getElementById('lon').value;
+            if (!lat || !lon) {
+                e.preventDefault();
+                document.getElementById('message').textContent = 'Please set your location using the button, entering coordinates, or clicking on the map before submitting.';
+                document.getElementById('location-status').innerHTML = '❌ Location is required! Please set it above.';
+                document.getElementById('location-status').classList.remove('text-gray-500', 'text-green-700', 'bg-gray-100', 'bg-green-100');
+                document.getElementById('location-status').classList.add('text-red-500', 'bg-red-100');
+            }
+        });
+    </script>
 </body>
 </html>

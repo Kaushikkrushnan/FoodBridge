@@ -6,6 +6,7 @@
         <div class="dashboard-header text-center mb-8">
             <h1 class="text-4xl font-bold text-gray-800 mb-2">Donor Dashboard</h1>
             <p class="text-lg text-gray-600">Connect with verified NGOs to donate surplus food</p>
+            <p class="text-sm text-gray-500 mt-2">NGOs are sorted by distance (nearest first)</p>
         </div>
         <!-- Navigation -->
         <nav class="flex justify-center gap-4 mb-8">
@@ -13,9 +14,10 @@
             <a href="{{ url_for('dashboard.donor_my_accepted_ngos') }}" class="btn bg-purple-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-purple-700 transition duration-300">My Accepted NGOs</a>
             <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">Live Progress Tracking</a>
         </nav>
+        
         <!-- Available NGOs Section -->
         <div class="mb-12">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">Available NGOs</h2>
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Available NGOs <span class="text-lg font-normal text-gray-500">(Nearest First)</span></h2>
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="available-ngos-grid">
                 {% if available_ngos %}
                     {% for ngo in available_ngos %}
@@ -23,13 +25,22 @@
                          data-id="{{ ngo.id }}"
                          data-name="{{ ngo.name or '' }}"
                          data-email="{{ ngo.email or '' }}"
+                         data-address="{{ ngo.address or '' }}"
+                         data-distance="{{ ngo.distance or '' }}"
                          data-reg="{{ ngo.registration_number or '' }}">
                         <h3 class="text-2xl font-semibold mb-2">{{ ngo.name or 'N/A' }}</h3>
+                        {% if ngo.distance is not none %}
+                        <p class="text-green-600 font-semibold mb-2">📍 {{ ngo.distance }} km away</p>
+                        {% endif %}
                         <p><strong>Email:</strong> {{ ngo.email or 'N/A' }}</p>
-                        <p><strong>Registration:</strong> {{ ngo.registration_number or 'N/A' }}</p>
-                        <span class="status-badge status-vacant">Available</span>
+                        {% if ngo.address %}
+                        <p><strong>Address:</strong> {{ ngo.address }}</p>
+                        {% endif %}
+                        <span class="inline-block mt-2 px-2 py-1 bg-green-100 text-green-800 text-sm rounded">Available</span>
                         <div class="mt-4">
-                            <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="openNgoModal('{{ ngo.id }}')">Review & Accept</button>
+                            <button class="btn w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition" onclick="requestPickup('{{ ngo.id }}', '{{ ngo.name | replace("'", "\\'") }}')">
+                                🚚 Request Pickup
+                            </button>
                         </div>
                     </div>
                     {% endfor %}
@@ -43,43 +54,69 @@
         
         <!-- Requested NGOs Section -->
         <div class="mb-12">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">Requested NGOs</h2>
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Requested NGOs <span class="text-lg font-normal text-yellow-600">(Waiting for Acceptance)</span></h2>
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="requested-ngos-grid">
                 {% if requested_ngos %}
                     {% for ngo in requested_ngos %}
-                    <div class="ngo-card bg-white p-6 rounded-lg shadow-lg border-gray-200">
+                    <div class="ngo-card bg-white p-6 rounded-lg shadow-lg border-2 border-yellow-400"
+                         data-id="{{ ngo.id }}"
+                         data-name="{{ ngo.name or '' }}">
                         <h3 class="text-2xl font-semibold mb-2">{{ ngo.name or 'N/A' }}</h3>
+                        {% if ngo.distance is not none %}
+                        <p class="text-green-600 font-semibold mb-2">📍 {{ ngo.distance }} km away</p>
+                        {% endif %}
                         <p><strong>Email:</strong> {{ ngo.email or 'N/A' }}</p>
-                        <p><strong>Registration:</strong> {{ ngo.registration_number or 'N/A' }}</p>
-                        <p><strong>Requested Donations:</strong> {{ ngo.requested_donations_count or 0 }}</p>
-                        <span class="status-badge status-occupied">Requested</span>
+                        {% if ngo.requested_at %}
+                        <p class="text-sm text-gray-500">Requested: {{ ngo.requested_at }}</p>
+                        {% endif %}
+                        <span class="inline-block mt-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-sm rounded">⏳ Pending Acceptance</span>
                         <div class="mt-4">
-                            <button class="btn w-full bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition" onclick="viewRequestedNgoDetails('{{ ngo.id }}')">View Details</button>
+                            <button class="btn w-full bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition" onclick="viewRequestedNgoDetails('{{ ngo.id }}')">View Status</button>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
                     <div class="col-span-full text-center py-12">
-                        <p class="text-gray-500 text-lg">No requested NGOs.</p>
+                        <p class="text-gray-500 text-lg">No pending requests.</p>
                     </div>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Accepted NGOs Section -->
+        <!-- Accepted NGOs Section with Live Tracking -->
         <div class="mb-12">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">Accepted NGOs</h2>
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Accepted NGOs <span class="text-lg font-normal text-green-600">(Track Progress)</span></h2>
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="accepted-ngos-grid">
                 {% if accepted_ngos %}
                     {% for ngo in accepted_ngos %}
-                    <div class="ngo-card bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                    <div class="ngo-card bg-white p-6 rounded-lg shadow-lg border-2 border-green-500"
+                         data-id="{{ ngo.id }}"
+                         data-name="{{ ngo.name or '' }}">
                         <h3 class="text-2xl font-semibold mb-2">{{ ngo.name or 'N/A' }}</h3>
+                        {% if ngo.distance is not none %}
+                        <p class="text-green-600 font-semibold mb-2">📍 {{ ngo.distance }} km away</p>
+                        {% endif %}
                         <p><strong>Email:</strong> {{ ngo.email or 'N/A' }}</p>
-                        <p><strong>Registration:</strong> {{ ngo.registration_number or 'N/A' }}</p>
-                        <p><strong>Accepted Donations:</strong> {{ ngo.accepted_donations_count or 0 }}</p>
-                        <span class="status-badge status-occupied">Accepted</span>
+                        {% if ngo.acceptance_time %}
+                        <p class="text-sm text-gray-500">Accepted: {{ ngo.acceptance_time }}</p>
+                        {% endif %}
+                        <span class="inline-block mt-2 px-2 py-1 bg-green-100 text-green-800 text-sm rounded">✅ Accepted</span>
+                        
+                        <!-- Live Tracking Progress -->
+                        <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+                            <h4 class="font-semibold mb-2 text-sm">Live Tracking:</h4>
+                            <div class="space-y-1 text-sm">
+                                <div class="flex items-center"><span class="text-green-500 mr-2">✔</span> Request Sent</div>
+                                <div class="flex items-center"><span class="text-green-500 mr-2">✔</span> NGO Accepted</div>
+                                <div class="flex items-center"><span class="text-gray-400 mr-2">○</span> Food Packed</div>
+                                <div class="flex items-center"><span class="text-gray-400 mr-2">○</span> Volunteer Collected</div>
+                                <div class="flex items-center"><span class="text-gray-400 mr-2">○</span> Food Near NGO</div>
+                                <div class="flex items-center"><span class="text-gray-400 mr-2">○</span> Completed</div>
+                            </div>
+                        </div>
+                        
                         <div class="mt-4">
-                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewAcceptedNgoDetails('{{ ngo.id }}')">View Details</button>
+                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewTrackingDetails('{{ ngo.id }}')">View Full Tracking</button>
                         </div>
                     </div>
                     {% endfor %}
@@ -98,7 +135,7 @@
 
     </div>
 
-    <!-- NGO Details Modal -->
+    <!-- Request Pickup Modal -->
     <div id="ngo-modal" class="modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
         <div class="modal-content bg-white rounded-lg shadow-2xl" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 2rem; max-width: 500px; width: 90%;">
             <span class="modal-close" style="position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: #666;" onclick="closeNgoModal()">&times;</span>
@@ -117,11 +154,74 @@
                 id: ngoId,
                 name: card.dataset.name || 'N/A',
                 email: card.dataset.email || 'N/A',
+                address: card.dataset.address || 'N/A',
+                distance: card.dataset.distance || null,
                 registration_number: card.dataset.reg || 'N/A',
                 status: card.dataset.status || 'vacant'
             };
         }
 
+        // Request Pickup function
+        function requestPickup(ngoId, ngoName) {
+            if (!confirm(`Request pickup from ${ngoName}?`)) return;
+            
+            fetch('/accept_ngo', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ ngo_id: ngoId, ngo_name: ngoName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Pickup request sent! The NGO will be notified.');
+                    // Move card to requested section
+                    moveToRequested(ngoId);
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('AJAX error: ' + err);
+            });
+        }
+
+        function moveToRequested(ngoId) {
+            const availableGrid = document.getElementById('available-ngos-grid');
+            const requestedGrid = document.getElementById('requested-ngos-grid');
+            const card = availableGrid.querySelector('.ngo-card[data-id="' + ngoId + '"]');
+
+            if (!card || !requestedGrid) return;
+
+            const clone = card.cloneNode(true);
+            
+            // Update badge and styling
+            clone.classList.remove('border-gray-200');
+            clone.classList.add('border-2', 'border-yellow-400');
+            
+            const badge = clone.querySelector('.inline-block');
+            if (badge) {
+                badge.className = 'inline-block mt-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-sm rounded';
+                badge.textContent = '⏳ Pending Acceptance';
+            }
+
+            // Update button
+            const btn = clone.querySelector('button');
+            if (btn) {
+                btn.textContent = 'View Status';
+                btn.className = 'btn w-full bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition';
+                btn.setAttribute('onclick', 'viewRequestedNgoDetails(' + ngoId + ')');
+            }
+
+            requestedGrid.prepend(clone);
+            card.remove();
+            
+            // Remove "No pending requests" message if present
+            const noRequestsMsg = requestedGrid.querySelector('.col-span-full');
+            if (noRequestsMsg) noRequestsMsg.remove();
+        }
+        
         function openNgoModal(ngoId) {
             const ngo = getNgoFromDom(ngoId);
             if (!ngo) {
@@ -141,15 +241,13 @@
 
             modalBody.innerHTML = `
                 <h2 class="text-3xl font-bold mb-4">${escapeHtml(ngo.name || 'N/A')}</h2>
+                ${ngo.distance ? `<p class="text-green-600 font-semibold mb-2">📍 ${ngo.distance} km away</p>` : ''}
                 <p class="text-lg mb-2"><strong>Email:</strong> ${escapeHtml(ngo.email || 'N/A')}</p>
-                <p class="text-lg mb-2"><strong>Registration Number:</strong> ${escapeHtml(ngo.registration_number || 'N/A')}</p>
-                <p class="text-lg mb-2"><strong>Status:</strong> <span class="status-badge status-vacant">Available</span></p>
+                <p class="text-lg mb-2"><strong>Address:</strong> ${escapeHtml(ngo.address || 'N/A')}</p>
                 <hr class="my-6">
-                <h3 class="text-2xl font-semibold mb-3">Contact Information</h3>
-                <p class="text-lg">Email: ${escapeHtml(ngo.email || 'N/A')}</p>
                 <div class="mt-8">
-                    <button class="btn w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition text-lg font-semibold" onclick="acceptNgoBackend(${ngo.id}, '${escapeHtml(ngo.name)}')">
-                        Accept NGO
+                    <button class="btn w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition text-lg font-semibold" onclick="requestPickup(${ngo.id}, '${escapeHtml(ngo.name)}'); closeNgoModal();">
+                        🚚 Request Pickup
                     </button>
                 </div>
             `;
@@ -160,61 +258,16 @@
             document.getElementById('ngo-modal').style.display = 'none';
         }
 
-        // Accept NGO and move to accepted section
-        function acceptNgoBackend(ngoId, ngoName) {
-            fetch('/accept_ngo', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ ngo_id: ngoId, ngo_name: ngoName })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('NGO accepted! Assignment ID: ' + data.assignment_id);
-                    // Optionally, update UI as before
-                    acceptNgo(ngoId);
-                } else {
-                    alert('Error: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(err => {
-                alert('AJAX error: ' + err);
-            });
+        function viewRequestedNgoDetails(ngoId) {
+            alert('Pickup request is pending. The NGO will accept it soon.');
         }
 
-        // Keep the original acceptNgo for UI update
-        function acceptNgo(ngoId) {
-            const availableGrid = document.getElementById('available-ngos-grid');
-            const acceptedGrid = document.getElementById('accepted-ngos-grid');
-            const card = availableGrid.querySelector('.ngo-card[data-id="' + ngoId + '"]');
+        function viewTrackingDetails(ngoId) {
+            window.location.href = "{{ url_for('dashboard.progress') }}";
+        }
 
-            if (!card || !acceptedGrid) return;
-
-            const clone = card.cloneNode(true);
-
-            // Update badge to "Accepted"
-            const badge = clone.querySelector('.status-badge');
-            if (badge) {
-                badge.classList.remove('status-vacant');
-                badge.classList.add('status-occupied');
-                badge.textContent = 'Accepted';
-            }
-
-            // Update button to "View Details"
-            const btn = clone.querySelector('button');
-            if (btn) {
-                btn.textContent = 'View Details';
-                btn.classList.remove('bg-sky-600');
-                btn.classList.add('bg-green-600', 'hover:bg-green-700');
-                btn.setAttribute('onclick', 'viewAcceptedNgoDetails(' + ngoId + ')');
-            }
-
-            acceptedGrid.prepend(clone);
-            card.remove();
-
-            closeNgoModal();
+        function viewAcceptedNgoDetails(ngoId) {
+            viewTrackingDetails(ngoId);
         }
         
         // Close modal when clicking outside

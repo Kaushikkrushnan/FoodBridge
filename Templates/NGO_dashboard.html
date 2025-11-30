@@ -2,9 +2,17 @@
 {% block title %}NGO Dashboard{% endblock %}
 {% block content %}
     <div class="container mx-auto py-8">
-        <h1 class="text-4xl font-bold mb-8 text-center">NGO Dashboard</h1>
+        <h1 class="text-4xl font-bold mb-4 text-center">NGO Dashboard</h1>
+        <p class="text-center text-gray-600 mb-8">Food donors are sorted by distance (nearest first)</p>
+        
+        <!-- Navigation -->
+        <nav class="flex justify-center gap-4 mb-8">
+            <a href="{{ url_for('index') }}" class="btn bg-sky-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-sky-700 transition duration-300">Home</a>
+            <a href="{{ url_for('dashboard.progress') }}" class="btn bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition duration-300">Live Progress Tracking</a>
+        </nav>
+        
         <div class="mb-12">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">Available Food Donations</h2>
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Available Food Donations <span class="text-lg font-normal text-gray-500">(Nearest First)</span></h2>
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="available-donations-grid">
                 {% if available_donations %}
                     {% for donation in available_donations %}
@@ -19,13 +27,22 @@
                          data-spice="{{ donation.spice_level or '' }}"
                          data-spec="{{ donation.food_category or '' }}">
                         <h3 class="text-2xl font-semibold mb-2">{{ donation.food_donor_name or donation.donor_name or 'Anonymous' }}</h3>
+                        {% if donation.distance is not none %}
+                        <p class="text-green-600 font-semibold mb-2">📍 {{ donation.distance }} km away</p>
+                        {% endif %}
+                        {% if donation.donor_phone %}
+                        <p><strong>Phone:</strong> {{ donation.donor_phone }}</p>
+                        {% endif %}
+                        {% if donation.donor_address %}
+                        <p><strong>Address:</strong> {{ donation.donor_address }}</p>
+                        {% endif %}
                         <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
                         <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
                         <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
                         <p><strong>Pickup Time:</strong> {{ donation.pickup_time or 'N/A' }}</p>
-                        <span class="status-badge status-available">Available</span>
+                        <span class="inline-block mt-2 px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded">Available</span>
                         <div class="mt-4">
-                            <button class="btn w-full bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition" onclick="acceptDonationBackend({{ donation.id }})">Review & Accept</button>
+                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="acceptDonationBackend({{ donation.id }})">✅ Accept Donation</button>
                         </div>
                     </div>
                     {% endfor %}
@@ -36,12 +53,13 @@
                 {% endif %}
             </div>
         </div>
+        
         <div class="mb-12">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">Accepted Food Donations</h2>
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Accepted Food Donations <span class="text-lg font-normal text-green-600">(Track Progress)</span></h2>
             <div class="dashboard-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="accepted-donations-grid">
                 {% if accepted_donations %}
                     {% for donation in accepted_donations %}
-                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border border-gray-200"
+                    <div class="donation-card bg-white p-6 rounded-lg shadow-lg border-2 border-green-500"
                          data-id="{{ donation.id }}"
                          data-donor-name="{{ donation.food_donor_name or donation.donor_name or '' }}"
                          data-food-type="{{ donation.food_type or '' }}"
@@ -52,13 +70,37 @@
                          data-spice="{{ donation.spice_level or '' }}"
                          data-spec="{{ donation.food_category or '' }}">
                         <h3 class="text-2xl font-semibold mb-2">{{ donation.food_donor_name or donation.donor_name or 'Anonymous' }}</h3>
+                        {% if donation.distance is not none %}
+                        <p class="text-green-600 font-semibold mb-2">📍 {{ donation.distance }} km away</p>
+                        {% endif %}
+                        {% if donation.donor_phone %}
+                        <p><strong>Phone:</strong> {{ donation.donor_phone }}</p>
+                        {% endif %}
                         <p><strong>Food Type:</strong> {{ donation.food_type or 'N/A' }}</p>
                         <p><strong>Quantity:</strong> {{ donation.quantity or 'N/A' }}</p>
                         <p><strong>Pickup Location:</strong> {{ donation.pickup_location or 'N/A' }}</p>
                         <p><strong>Pickup Time:</strong> {{ donation.pickup_time or 'N/A' }}</p>
-                        <span class="status-badge status-active">Accepted</span>
-                        <div class="mt-4">
-                            <button class="btn w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" onclick="viewAcceptedDonation({{ donation.id }})">View Details</button>
+                        {% if donation.volunteer_name %}
+                        <p class="text-purple-600"><strong>Volunteer:</strong> {{ donation.volunteer_name }}</p>
+                        {% endif %}
+                        <span class="inline-block mt-2 px-2 py-1 bg-green-100 text-green-800 text-sm rounded">✅ Accepted</span>
+                        
+                        <!-- Live Tracking Progress -->
+                        <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+                            <h4 class="font-semibold mb-2 text-sm">Live Tracking:</h4>
+                            <div class="space-y-1 text-sm">
+                                <div class="flex items-center"><span class="text-green-500 mr-2">✔</span> Request Received</div>
+                                <div class="flex items-center"><span class="text-green-500 mr-2">✔</span> Donation Accepted</div>
+                                <div class="flex items-center"><span class="text-gray-400 mr-2">○</span> Food Packed</div>
+                                <div class="flex items-center"><span class="text-gray-400 mr-2">○</span> Volunteer Collected</div>
+                                <div class="flex items-center"><span class="text-gray-400 mr-2">○</span> Food Near You</div>
+                                <div class="flex items-center"><span class="text-gray-400 mr-2">○</span> Mark Completed</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 space-y-2">
+                            <button class="btn w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition" onclick="viewAcceptedDonation({{ donation.id }})">View Details</button>
+                            <button class="btn w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition" onclick="markCompleted({{ donation.id }})">✅ Mark Completed</button>
                         </div>
                     </div>
                     {% endfor %}
@@ -69,10 +111,11 @@
                 {% endif %}
             </div>
         </div>
+        
         <!-- Request Details Modal -->
-        <div id="request-modal" class="modal" style="display:none;">
-            <div class="modal-content bg-white rounded-lg shadow-2xl">
-                <span class="modal-close absolute top-4 right-5 text-3xl font-bold text-gray-500 hover:text-red-600 cursor-pointer" onclick="closeRequestModal()">&times;</span>
+        <div id="request-modal" class="modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
+            <div class="modal-content bg-white rounded-lg shadow-2xl" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 2rem; max-width: 500px; width: 90%;">
+                <span class="modal-close" style="position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: #666;" onclick="closeRequestModal()">&times;</span>
                 <div id="request-modal-body">
                     <!-- Content will be populated by JavaScript -->
                 </div>
@@ -101,6 +144,8 @@
         }
 
         function acceptDonationBackend(requestId) {
+            if (!confirm('Accept this food donation?')) return;
+            
             console.log('[DEBUG] acceptDonationBackend called with requestId:', requestId);
             fetch('/ngo_accept_donation', {
                 method: 'POST',
@@ -117,23 +162,27 @@
                     const card = availableGrid.querySelector('.donation-card[data-id="' + requestId + '"]');
                     if (!card || !acceptedGrid) return;
                     const clone = card.cloneNode(true);
-                    const badge = clone.querySelector('.status-badge');
+                    
+                    // Update styling
+                    clone.classList.remove('border-gray-200');
+                    clone.classList.add('border-2', 'border-green-500');
+                    
+                    const badge = clone.querySelector('.inline-block');
                     if (badge) {
-                        badge.classList.remove('status-available');
-                        badge.classList.add('status-active');
-                        badge.textContent = 'Accepted';
+                        badge.className = 'inline-block mt-2 px-2 py-1 bg-green-100 text-green-800 text-sm rounded';
+                        badge.textContent = '✅ Accepted';
                     }
-                    const btn = clone.querySelector('button');
-                    if (btn) {
-                        btn.textContent = 'View Details';
-                        btn.classList.remove('bg-sky-600');
-                        btn.classList.add('bg-green-600', 'hover:bg-green-700');
-                        btn.setAttribute('onclick', 'viewAcceptedDonation(' + requestId + ')');
+                    const btnDiv = clone.querySelector('.mt-4');
+                    if (btnDiv) {
+                        btnDiv.innerHTML = `
+                            <button class="btn w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition mb-2" onclick="viewAcceptedDonation(${requestId})">View Details</button>
+                            <button class="btn w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition" onclick="markCompleted(${requestId})">✅ Mark Completed</button>
+                        `;
                     }
                     acceptedGrid.prepend(clone);
                     card.remove();
                     closeRequestModal();
-                    alert('Donation accepted!');
+                    alert('Donation accepted! A volunteer will be assigned shortly.');
                 } else {
                     alert('Error: ' + (data.error || 'Unknown error'));
                 }
@@ -180,6 +229,30 @@
                 '<hr class="my-6">' +
                 '<p class="text-center text-green-600 font-semibold">This donation has been accepted!</p>';
             document.getElementById('request-modal').style.display = 'block';
+        }
+
+        function markCompleted(donationId) {
+            if (!confirm('Mark this donation as completed?')) return;
+            
+            fetch('/mark_donation_completed', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ request_id: donationId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Donation marked as completed! SMS notification sent to the donor.');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('AJAX error: ' + err);
+            });
         }
 
         window.onclick = function(event) {
